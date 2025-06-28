@@ -1,103 +1,629 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  Image as ImageIcon,
+  Zap,
+  Shield,
+  Globe,
+  Eye,
+  Brain,
+  ArrowRight,
+  ChevronRight,
+  Camera,
+  Palette,
+  Scan,
+  Moon,
+  Sun,
+  Sparkles,
+  Wand2,
+  Paintbrush,
+} from "lucide-react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [isDark, setIsDark] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  useEffect(() => {
+    // Check for saved theme preference or default to light mode
+    const savedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+
+    if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+      setIsDark(true);
+      document.documentElement.classList.add("dark");
+    } else {
+      setIsDark(false);
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+
+    if (newTheme) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
+
+    setIsGenerating(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsGenerating(false);
+    // Here you would typically make an actual API call to generate the image
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300 relative">
+      {/* Background pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(20,184,166,0.05)_0%,transparent_50%)] dark:bg-[radial-gradient(circle_at_50%_50%,rgba(20,184,166,0.1)_0%,transparent_50%)]"></div>
+      <div className="relative z-10">
+        {/* Navigation */}
+        <nav className="relative z-50 px-6 py-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200/50 dark:border-slate-800 transition-all duration-300">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                <ImageIcon className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
+                AIRouter
+              </span>
+            </div>
+            <div className="hidden md:flex items-center space-x-8">
+              <a
+                href="#features"
+                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
+              >
+                Features
+              </a>
+              <a
+                href="#models"
+                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
+              >
+                Models
+              </a>
+              <a
+                href="#pricing"
+                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors"
+              >
+                Pricing
+              </a>
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                {isDark ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
+              <button className="px-4 py-2 text-sm font-medium text-teal-600 hover:text-teal-700 border border-teal-200 rounded-lg hover:bg-teal-50 transition-colors">
+                Sign In
+              </button>
+              <button className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-emerald-600 rounded-lg hover:from-teal-600 hover:to-emerald-700 transition-all">
+                Get Started
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden flex items-center space-x-2">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                {isDark ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <main className="px-6 py-16">
+          <div className="max-w-7xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-center"
+            >
+              <h1 className="text-5xl md:text-7xl font-bold mb-6">
+                <span className="bg-gradient-to-r from-slate-900 via-teal-800 to-emerald-800 dark:from-white dark:via-teal-200 dark:to-emerald-200 bg-clip-text text-transparent">
+                  The Multimodal
+                </span>
+                <br />
+                <span className="bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent">
+                  AI Interface
+                </span>
+              </h1>
+              <p className="text-xl md:text-2xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto leading-relaxed">
+                Route your AI requests across multiple vision models with
+                intelligent load balancing, competitive pricing, and
+                zero-downtime infrastructure.
+              </p>
+
+              {/* Image Generation Demo */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="mb-12 max-w-4xl mx-auto"
+              >
+                <div className="bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-slate-200/50 dark:border-slate-700 transition-all duration-300">
+                  <div className="text-center mb-6">
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                      Generate Images with AI
+                    </h3>
+                    <p className="text-slate-600 dark:text-slate-300">
+                      Try our multimodal AI routing for image generation
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        placeholder="Describe the image you want to generate..."
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all shadow-sm"
+                      />
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: isGenerating ? 1 : 1.05 }}
+                      whileTap={{ scale: isGenerating ? 1 : 0.95 }}
+                      onClick={handleGenerate}
+                      disabled={isGenerating || !prompt.trim()}
+                      className="px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-xl hover:from-teal-600 hover:to-emerald-700 transition-all shadow-lg flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5" />
+                          Generate
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
+                    {[
+                      "A futuristic cityscape at sunset",
+                      "A cute robot reading a book",
+                      "Abstract geometric patterns",
+                    ].map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setPrompt(suggestion)}
+                        className="text-sm px-3 py-2 bg-slate-100/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-900/20 hover:text-teal-700 dark:hover:text-teal-300 transition-all duration-200 border border-slate-200/50 dark:border-slate-600"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto"
+              >
+                {[
+                  { value: "15+", label: "Vision Models" },
+                  { value: "99.9%", label: "Uptime" },
+                  { value: "50ms", label: "Avg Latency" },
+                  { value: "10k+", label: "Developers" },
+                ].map((stat, index) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                    className="text-center"
+                  >
+                    <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
+                      {stat.value}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      {stat.label}
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+          </div>
+        </main>
+
+        {/* Featured Models Section */}
+        <section className="px-6 py-16 bg-slate-50/80 dark:bg-slate-800/50 transition-colors duration-300">
+          <div className="max-w-7xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="text-center mb-12"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+                Featured AI Models
+              </h2>
+              <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+                Access the latest vision and image generation models through our
+                unified API
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                {
+                  name: "DALL-E 3",
+                  provider: "OpenAI",
+                  type: "Generation",
+                  latency: "8.2s",
+                  growth: "+25%",
+                  icon: <Wand2 className="w-6 h-6" />,
+                  color: "from-pink-500 to-rose-600",
+                },
+                {
+                  name: "Midjourney",
+                  provider: "Midjourney",
+                  type: "Generation",
+                  latency: "12.1s",
+                  growth: "+18%",
+                  icon: <Paintbrush className="w-6 h-6" />,
+                  color: "from-violet-500 to-indigo-600",
+                },
+                {
+                  name: "Stable Diffusion",
+                  provider: "Stability AI",
+                  type: "Generation",
+                  latency: "4.5s",
+                  growth: "+32%",
+                  icon: <Sparkles className="w-6 h-6" />,
+                  color: "from-teal-500 to-emerald-600",
+                },
+                {
+                  name: "GPT-4 Vision",
+                  provider: "OpenAI",
+                  type: "Analysis",
+                  latency: "1.2s",
+                  growth: "+15%",
+                  icon: <Brain className="w-6 h-6" />,
+                  color: "from-emerald-500 to-green-600",
+                },
+                {
+                  name: "Claude Vision",
+                  provider: "Anthropic",
+                  type: "Analysis",
+                  latency: "0.9s",
+                  growth: "+22%",
+                  icon: <Eye className="w-6 h-6" />,
+                  color: "from-orange-500 to-red-600",
+                },
+                {
+                  name: "Gemini Vision",
+                  provider: "Google",
+                  type: "Analysis",
+                  latency: "0.7s",
+                  growth: "+18%",
+                  icon: <Scan className="w-6 h-6" />,
+                  color: "from-blue-500 to-cyan-600",
+                },
+              ].map((model, index) => (
+                <motion.div
+                  key={model.name}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="bg-white/80 dark:bg-slate-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-slate-200/50 dark:border-slate-700"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className={`w-10 h-10 rounded-lg bg-gradient-to-br ${model.color} flex items-center justify-center text-white`}
+                    >
+                      {model.icon}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-slate-500 dark:text-slate-400 block">
+                        {model.provider}
+                      </span>
+                      <span className="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full">
+                        {model.type}
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                    {model.name}
+                  </h3>
+                  <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex justify-between">
+                      <span>Avg Latency:</span>
+                      <span className="font-medium">{model.latency}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Growth:</span>
+                      <span className="font-medium text-green-600">
+                        {model.growth}
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="px-6 py-16">
+          <div className="max-w-7xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="text-center mb-12"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+                Why Choose AIRouter?
+              </h2>
+              <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+                Built for developers who need reliable, fast, and cost-effective
+                multimodal AI
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <Zap className="w-8 h-8" />,
+                  title: "Lightning Fast",
+                  description:
+                    "Optimized routing ensures your requests reach the fastest available model with minimal latency.",
+                  color: "from-yellow-500 to-orange-500",
+                },
+                {
+                  icon: <Shield className="w-8 h-8" />,
+                  title: "99.9% Uptime",
+                  description:
+                    "Automatic failover across multiple providers ensures your applications never go down.",
+                  color: "from-green-500 to-emerald-500",
+                },
+                {
+                  icon: <Camera className="w-8 h-8" />,
+                  title: "Image First",
+                  description:
+                    "Purpose-built for vision tasks: OCR, object detection, image analysis, and generation.",
+                  color: "from-teal-500 to-emerald-500",
+                },
+                {
+                  icon: <Globe className="w-8 h-8" />,
+                  title: "Global Edge",
+                  description:
+                    "Deployed across 50+ regions worldwide for the lowest possible latency to your users.",
+                  color: "from-cyan-500 to-blue-500",
+                },
+                {
+                  icon: <Palette className="w-8 h-8" />,
+                  title: "Smart Routing",
+                  description:
+                    "AI-powered model selection based on your specific use case and performance requirements.",
+                  color: "from-violet-500 to-purple-500",
+                },
+                {
+                  icon: <Brain className="w-8 h-8" />,
+                  title: "Cost Optimized",
+                  description:
+                    "Dynamic pricing and model selection to minimize costs while maintaining quality.",
+                  color: "from-indigo-500 to-blue-500",
+                },
+              ].map((feature, index) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="group p-6 rounded-xl border border-slate-200/50 dark:border-slate-700 hover:border-teal-300 dark:hover:border-slate-600 transition-all duration-300 hover:shadow-xl hover:bg-white/50 dark:hover:bg-slate-800/50 backdrop-blur-sm"
+                >
+                  <div
+                    className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}
+                  >
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    {feature.description}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="px-6 py-16 bg-gradient-to-r from-teal-600 to-emerald-600">
+          <div className="max-w-4xl mx-auto text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                Ready to Build the Future?
+              </h2>
+              <p className="text-xl text-teal-100 mb-8 max-w-2xl mx-auto">
+                Join thousands of developers already using AIRouter to power
+                their multimodal applications
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 text-lg font-semibold text-teal-600 bg-white rounded-xl hover:bg-teal-50 transition-all shadow-lg flex items-center justify-center gap-2"
+                >
+                  Start Free Trial
+                  <ChevronRight className="w-5 h-5" />
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 text-lg font-semibold text-white border-2 border-white/20 rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                  View Documentation
+                  <ArrowRight className="w-5 h-5" />
+                </motion.button>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="px-6 py-12 bg-slate-900 text-white">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+              <div>
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                    <ImageIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-xl font-bold">AIRouter</span>
+                </div>
+                <p className="text-slate-400">
+                  The most reliable multimodal AI routing platform for
+                  developers.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-4">Product</h3>
+                <ul className="space-y-2 text-slate-400">
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Features
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Models
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Pricing
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      API
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-4">Company</h3>
+                <ul className="space-y-2 text-slate-400">
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      About
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Blog
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Careers
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Contact
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-4">Resources</h3>
+                <ul className="space-y-2 text-slate-400">
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Documentation
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Guides
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Status
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="hover:text-white transition-colors">
+                      Support
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div className="border-t border-slate-800 pt-8 flex flex-col sm:flex-row justify-between items-center">
+              <p className="text-slate-400">
+                &copy; 2025 AIRouter. All rights reserved.
+              </p>
+              <div className="flex space-x-6 mt-4 sm:mt-0">
+                <a
+                  href="#"
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  Privacy
+                </a>
+                <a
+                  href="#"
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  Terms
+                </a>
+                <a
+                  href="#"
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  Security
+                </a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
