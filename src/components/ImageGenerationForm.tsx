@@ -11,6 +11,7 @@ interface ImageGenerationFormProps {
   isGenerating: boolean;
   onGenerate: () => void;
   error: string | null;
+  isAuthenticated: boolean;
 }
 
 export function ImageGenerationForm({
@@ -21,6 +22,7 @@ export function ImageGenerationForm({
   isGenerating,
   onGenerate,
   error,
+  isAuthenticated,
 }: ImageGenerationFormProps) {
   const suggestions = [
     "A futuristic cityscape at sunset",
@@ -69,7 +71,7 @@ export function ImageGenerationForm({
           ) : (
             <>
               <Sparkles className="w-5 h-5" />
-              Generate
+              {isAuthenticated ? "Generate" : "Sign In to Generate"}
             </>
           )}
         </motion.button>
@@ -80,6 +82,15 @@ export function ImageGenerationForm({
         <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p className="text-red-600 dark:text-red-400 text-sm font-medium">
             Error: {error}
+          </p>
+        </div>
+      )}
+
+      {/* Authentication Notice */}
+      {!isAuthenticated && (
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-blue-600 dark:text-blue-400 text-sm font-medium text-center">
+            Sign in to start generating amazing AI images with multiple providers
           </p>
         </div>
       )}
