@@ -10,12 +10,16 @@ interface NavigationProps {
   isDark: boolean;
   mounted: boolean;
   onToggleTheme: () => void;
+  onShowLogin?: () => void;
+  onShowRegister?: () => void;
 }
 
 export function Navigation({
   isDark,
   mounted,
   onToggleTheme,
+  onShowLogin,
+  onShowRegister,
 }: NavigationProps) {
   const { data: session } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -118,18 +122,18 @@ export function Navigation({
             </div>
           ) : (
             <>
-              <Link
-                href="/login"
+              <button
+                onClick={onShowLogin}
                 className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
               >
                 Sign In
-              </Link>
-              <Link
-                href="/register"
+              </button>
+              <button
+                onClick={onShowRegister}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all"
               >
                 Get Started
-              </Link>
+              </button>
             </>
           )}
         </div>
@@ -160,12 +164,12 @@ export function Navigation({
               <User className="w-5 h-5" />
             </Link>
           ) : (
-            <Link
-              href="/login"
+            <button
+              onClick={onShowLogin}
               className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
             >
               Sign In
-            </Link>
+            </button>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
@@ -23,6 +23,11 @@ export function AuthModal({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Update activeTab when defaultTab changes
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,11 +90,14 @@ export function AuthModal({
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signIn("google", { redirect: false });
-      onClose();
+      // Use callbackUrl to redirect back to home page after Google OAuth
+      await signIn("google", {
+        callbackUrl: "/",
+        redirect: true,
+      });
+      // Note: We don't close the modal here since we're redirecting
     } catch {
       setError("Google sign in failed");
-    } finally {
       setIsLoading(false);
     }
   };
@@ -143,7 +151,7 @@ export function AuthModal({
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
                   {activeTab === "login"
-                    ? "Sign in to generate amazing AI images"
+                    ? "Sign in to your account"
                     : "Join us to start creating with AI"}
                 </p>
               </div>

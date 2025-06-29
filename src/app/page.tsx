@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { generateImage, type Provider } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { type Provider } from "@/lib/api";
 import { Navigation } from "@/components/Navigation";
 import { HeroSection } from "@/components/HeroSection";
 import { FeaturedModelsSection } from "@/components/FeaturedModelsSection";
@@ -13,16 +14,17 @@ import { AuthModal } from "@/components/AuthModal";
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [isDark, setIsDark] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [selectedProviders, setSelectedProviders] = useState<Provider[]>([
     "openai",
   ]);
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<"login" | "register">(
+    "login"
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -38,28 +40,21 @@ export default function Home() {
     document.documentElement.classList.toggle("dark", shouldUseDark);
   }, []);
 
-  // Restore pending prompt and providers after successful login
+  // Only redirect to chat if user just signed in with pending content
   useEffect(() => {
     if (session && status === "authenticated") {
       const pendingPrompt = localStorage.getItem("pendingPrompt");
       const pendingProviders = localStorage.getItem("pendingProviders");
+      const shouldRedirect = localStorage.getItem("shouldRedirectToChat");
 
-      if (pendingPrompt) {
-        setPrompt(pendingPrompt);
-        localStorage.removeItem("pendingPrompt");
-      }
-
-      if (pendingProviders) {
-        try {
-          const providers = JSON.parse(pendingProviders);
-          setSelectedProviders(providers);
-          localStorage.removeItem("pendingProviders");
-        } catch (error) {
-          console.warn("Failed to parse pending providers:", error);
-        }
+      if (shouldRedirect === "true" && (pendingPrompt || pendingProviders)) {
+        // Redirect to chat page if there's pending content from a generate attempt
+        localStorage.removeItem("shouldRedirectToChat"); // Clear the flag
+        router.push("/chat");
+        return;
       }
     }
-  }, [session, status]);
+  }, [session, status, router]);
 
   const toggleTheme = () => {
     const newTheme = !isDark;
@@ -92,85 +87,31 @@ export default function Home() {
         "pendingProviders",
         JSON.stringify(selectedProviders)
       );
+      localStorage.setItem("shouldRedirectToChat", "true"); // Set redirect flag
 
       // Show auth modal instead of redirecting
       setShowAuthModal(true);
       return;
     }
 
-    setIsGenerating(true);
-    setError(null);
-    setGeneratedImages([]);
-
-    try {
-      // Try providers in order until one succeeds
-      let lastError = null;
-
-      for (const provider of selectedProviders) {
-        try {
-          const result = await generateImage({
-            prompt: prompt.trim(),
-            provider,
-            width: 1024,
-            height: 1024,
-            steps: 20,
-          });
-
-          if (result.success && result.images && result.images.length > 0) {
-            setGeneratedImages(result.images);
-
-            // Save images to database for authenticated users
-            if (session) {
-              try {
-                for (const imageUrl of result.images) {
-                  await fetch("/api/images/save", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      prompt: prompt.trim(),
-                      imageUrl,
-                      provider,
-                      model: result.model,
-                      width: 1024,
-                      height: 1024,
-                      steps: 20,
-                    }),
-                  });
-                }
-              } catch (saveError) {
-                console.warn("Failed to save image to database:", saveError);
-                // Don't throw error - image generation was successful
-              }
-            }
-
-            return; // Success, exit early
-          }
-        } catch (err) {
-          lastError = err;
-          console.warn(`Provider ${provider} failed:`, err);
-          // Continue to next provider
-        }
-      }
-
-      // If we get here, all providers failed
-      const errorMessage =
-        lastError instanceof Error
-          ? lastError.message
-          : "All selected providers failed";
-      setError(errorMessage);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "An unexpected error occurred";
-      setError(errorMessage);
-      console.error("Generation error:", err);
-    } finally {
-      setIsGenerating(false);
-    }
+    // If user is authenticated, redirect to chat page with the prompt
+    localStorage.setItem("pendingPrompt", prompt);
+    localStorage.setItem("pendingProviders", JSON.stringify(selectedProviders));
+    router.push("/chat");
+    return;
   };
 
   const handleAuthRequired = () => {
+    setShowAuthModal(true);
+  };
+
+  const handleShowLogin = () => {
+    setAuthModalTab("login");
+    setShowAuthModal(true);
+  };
+
+  const handleShowRegister = () => {
+    setAuthModalTab("register");
     setShowAuthModal(true);
   };
 
@@ -183,6 +124,8 @@ export default function Home() {
           isDark={isDark}
           mounted={mounted}
           onToggleTheme={toggleTheme}
+          onShowLogin={handleShowLogin}
+          onShowRegister={handleShowRegister}
         />
 
         <HeroSection
@@ -190,10 +133,10 @@ export default function Home() {
           onPromptChange={setPrompt}
           selectedProviders={selectedProviders}
           onToggleProvider={toggleProvider}
-          isGenerating={isGenerating}
+          isGenerating={false}
           onGenerate={handleGenerate}
-          error={error}
-          generatedImages={generatedImages}
+          error={null}
+          generatedImages={[]}
           isAuthenticated={!!session}
           onAuthRequired={handleAuthRequired}
         />
@@ -206,6 +149,7 @@ export default function Home() {
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
+          defaultTab={authModalTab}
         />
       </div>
     </div>
