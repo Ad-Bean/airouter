@@ -67,7 +67,7 @@ export async function generateWithOpenAI(
       model: "dall-e-2" | "dall-e-3";
       prompt: string;
       size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
-      response_format: "url";
+      response_format: "b64_json";
       quality?: "standard" | "hd";
       n?: number;
     } = {
@@ -79,7 +79,7 @@ export async function generateWithOpenAI(
         | "1024x1024"
         | "1792x1024"
         | "1024x1792",
-      response_format: "url",
+      response_format: "b64_json", // Request base64 data instead of URLs
     };
 
     // DALL-E 3 specific parameters
@@ -98,8 +98,9 @@ export async function generateWithOpenAI(
     console.log("OpenAI response:", response);
 
     const images = (response.data || [])
-      .map((item: { url?: string | null }) => item.url)
-      .filter((url): url is string => Boolean(url));
+      .map((item: { b64_json?: string | null }) => item.b64_json)
+      .filter((base64): base64 is string => Boolean(base64))
+      .map((base64) => `data:image/png;base64,${base64}`); // Convert to data URL format
 
     if (images.length === 0) {
       throw new Error("No images returned from OpenAI");

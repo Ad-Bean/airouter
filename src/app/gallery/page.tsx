@@ -18,7 +18,10 @@ import {
 interface GeneratedImage {
   id: string;
   prompt: string;
-  imageUrl: string;
+  imageUrl: string | null;
+  imageData: Buffer | null;
+  mimeType: string | null;
+  filename: string | null;
   provider: string;
   model: string | null;
   width: number;
@@ -27,6 +30,16 @@ interface GeneratedImage {
   isFavorite: boolean;
   isPublic: boolean;
   createdAt: string;
+}
+
+// Helper function to get the display URL for an image
+function getImageDisplayUrl(image: GeneratedImage): string {
+  // If we have binary data stored, use our serving endpoint
+  if (image.imageData || (image.mimeType && !image.imageUrl)) {
+    return `/api/images/${image.id}`;
+  }
+  // Otherwise use the legacy URL
+  return image.imageUrl || "";
 }
 
 interface PaginationInfo {
@@ -321,7 +334,7 @@ export default function GalleryPage() {
                     }`}
                   >
                     <Image
-                      src={image.imageUrl}
+                      src={getImageDisplayUrl(image)}
                       alt={image.prompt}
                       fill
                       className="object-cover"
@@ -358,7 +371,7 @@ export default function GalleryPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() =>
-                          downloadImage(image.imageUrl, image.prompt)
+                          downloadImage(getImageDisplayUrl(image), image.prompt)
                         }
                         className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs py-1.5 px-2 rounded-md flex items-center justify-center gap-1"
                       >

@@ -16,3 +16,8 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+// Ensure clean connections and handle connection issues
+process.on("beforeExit", async () => {
+  await prisma.$disconnect();
+});

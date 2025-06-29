@@ -2,14 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ImageStorage } from "@/lib/storage";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+
+// Fallback storage function for when database is unavailable
+async function saveImageToFileSystem(
+  imageData: Buffer,
+  mimeType: string,
+  filename: string,
+  userId: string
+): Promise<string> {
+  try {
+    const uploadsDir = join(process.cwd(), 'public', 'uploads', userId);
+    await mkdir(uploadsDir, { recursive: true });
+    
+    const filePath = join(uploadsDir, filename);
+    await writeFile(filePath, imageData);
+    
+    return `/uploads/${userId}/${filename}`;
+  } catch (error) {
+    console.error("Failed to save to filesystem:", error);
+    throw error;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     console.log("Starting image save process...");
 
-    // Parse request body first to catch any JSON parsing errors
+    // Parse request body
     let requestData;
     try {
       requestData = await request.json();
@@ -22,20 +44,13 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await getServerSession(authOptions);
-    console.log(
-      "Session check:",
-      session ? "authenticated" : "not authenticated",
-      session?.user?.id
-    );
-
     if (!session?.user?.id) {
       console.log("Unauthorized request - no session or user ID");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check rate limit to prevent spam
+    // Rate limiting
     if (!checkRateLimit(session.user.id, 20, 60000)) {
-      // 20 requests per minute
       console.log("Rate limit exceeded for user:", session.user.id);
       return NextResponse.json(
         { error: "Too many requests. Please wait before saving more images." },
@@ -43,34 +58,86 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { prompt, imageUrl, provider, model, width, height, steps } =
+    const { prompt, imageData, provider, model, width, height, steps } =
       requestData;
 
-    // Validate required fields and data types
+    // Validate required fields
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
-      console.log("Invalid prompt:", prompt);
       return NextResponse.json(
         { error: "Valid prompt is required" },
         { status: 400 }
       );
     }
 
-    if (
-      !imageUrl ||
-      typeof imageUrl !== "string" ||
-      (!imageUrl.startsWith("http") && !imageUrl.startsWith("data:"))
-    ) {
-      console.log("Invalid imageUrl:", imageUrl);
+    if (!imageData || typeof imageData !== "string") {
       return NextResponse.json(
-        { error: "Valid image URL is required (must be HTTP URL or data URL)" },
+        { error: "Valid image data is required" },
         { status: 400 }
       );
     }
 
     if (!provider || typeof provider !== "string") {
-      console.log("Invalid provider:", provider);
       return NextResponse.json(
         { error: "Valid provider is required" },
+        { status: 400 }
+      );
+    }
+
+    // Process image data
+    let processedImageData: Buffer;
+    let mimeType: string;
+    let filename: string;
+
+    try {
+      if (imageData.startsWith("data:")) {
+        // Handle data URLs (base64 encoded images)
+        const [header, base64Data] = imageData.split(",");
+        if (!base64Data) {
+          throw new Error("Invalid data URL format - missing base64 data");
+        }
+        const mimeMatch = header.match(/data:([^;]+)/);
+        mimeType = mimeMatch ? mimeMatch[1] : "image/png";
+        
+        // Validate base64 data
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+          throw new Error("Invalid base64 data");
+        }
+        
+        processedImageData = Buffer.from(base64Data, "base64");
+      } else {
+        // Handle raw base64 data (without data: prefix)
+        // Validate base64 data
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(imageData)) {
+          throw new Error("Invalid base64 data");
+        }
+        
+        processedImageData = Buffer.from(imageData, "base64");
+        mimeType = "image/png"; // Default to PNG
+      }
+
+      // Validate that we actually got data
+      if (processedImageData.length === 0) {
+        throw new Error("Processed image data is empty");
+      }
+
+      // Generate filename
+      const extension = mimeType.split("/")[1] || "png";
+      filename = `${provider}_${Date.now()}.${extension}`;
+
+      // Validate image size (limit to 10MB)
+      if (processedImageData.length > 10 * 1024 * 1024) {
+        throw new Error("Image too large (max 10MB)");
+      }
+
+      console.log(
+        `Processed image: ${processedImageData.length} bytes, ${mimeType}`
+      );
+    } catch (error) {
+      console.error("Failed to process image data:", error);
+      return NextResponse.json(
+        { 
+          error: `Invalid image data format: ${error instanceof Error ? error.message : "Unknown error"}` 
+        },
         { status: 400 }
       );
     }
@@ -89,64 +156,7 @@ export async function POST(request: NextRequest) {
         ? Math.max(1, Math.min(100, steps))
         : 20;
 
-    console.log("Request data:", {
-      prompt: prompt.substring(0, 50) + "...",
-      imageUrl: imageUrl.substring(0, 100) + "...",
-      provider,
-      model,
-      dimensions: `${safeWidth}x${safeHeight}`,
-      steps: safeSteps,
-    });
-
-    // Store the image permanently
-    let storedImageUrl = imageUrl;
-    let storedPathname = null;
-
-    // Only attempt storage for HTTP URLs, not data URLs
-    if (imageUrl.startsWith("http")) {
-      try {
-        // Only attempt storage if we have valid configuration
-        if (
-          (process.env.NODE_ENV === "production" ||
-            process.env.BLOB_READ_WRITE_TOKEN) &&
-          imageUrl.startsWith("http")
-        ) {
-          console.log("Attempting to store image permanently...");
-          const storageResult = await ImageStorage.storeImage(
-            imageUrl,
-            session.user.id,
-            prompt.trim(),
-            provider
-          );
-          storedImageUrl = storageResult.url;
-          storedPathname = storageResult.pathname;
-          console.log("Image stored successfully:", storedImageUrl);
-        } else if (process.env.NODE_ENV === "development") {
-          // Development fallback to local storage
-          console.log("Using local storage for development...");
-          storedImageUrl = await ImageStorage.storeImageLocal(
-            imageUrl,
-            session.user.id,
-            prompt.trim(),
-            provider
-          );
-          console.log("Image stored locally:", storedImageUrl);
-        }
-      } catch (storageError) {
-        console.warn(
-          "Failed to store image permanently, using original URL:",
-          storageError instanceof Error ? storageError.message : storageError
-        );
-        // Continue with original URL if storage fails
-        storedImageUrl = imageUrl;
-      }
-    } else if (imageUrl.startsWith("data:")) {
-      console.log("Data URL detected, skipping external storage");
-      // For data URLs, we keep them as-is since they're already self-contained
-      storedImageUrl = imageUrl;
-    }
-
-    // Retry database operations with exponential backoff
+    // Database operations with retry logic
     const retryDatabaseOperation = async <T>(
       operation: () => Promise<T>,
       maxRetries = 3
@@ -155,20 +165,14 @@ export async function POST(request: NextRequest) {
         try {
           return await operation();
         } catch (error: unknown) {
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
-          console.warn(
-            `Database operation attempt ${attempt} failed:`,
-            errorMessage
-          );
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          console.warn(`Database operation attempt ${attempt} failed:`, errorMessage);
 
           // Check for specific Prisma errors that shouldn't be retried
           if (error && typeof error === "object" && "code" in error) {
             const prismaError = error as { code: string };
             // Don't retry validation errors, unique constraint violations, etc.
-            if (
-              ["P2002", "P2025", "P2003", "P2004"].includes(prismaError.code)
-            ) {
+            if (["P2002", "P2025", "P2003", "P2004"].includes(prismaError.code)) {
               throw error;
             }
           }
@@ -179,56 +183,54 @@ export async function POST(request: NextRequest) {
 
           // Exponential backoff: wait 100ms, 300ms, 900ms
           const delay = 100 * Math.pow(3, attempt - 1);
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
       throw new Error("All retry attempts failed");
     };
 
-    // Check if image already exists to prevent duplicates
-    const existingImage = await retryDatabaseOperation(async () => {
-      return await prisma.generatedImage.findFirst({
-        where: {
-          userId: session.user.id,
-          prompt: prompt.trim(),
-          imageUrl: storedImageUrl,
-          provider,
-        },
-      });
-    });
-
-    if (existingImage) {
-      console.log("Image already exists:", existingImage.id);
-      return NextResponse.json(
-        { success: true, image: existingImage, message: "Image already saved" },
-        { status: 200 }
-      );
-    }
-
-    const savedImage = await retryDatabaseOperation(async () => {
-      console.log(
-        "Attempting to save image to database for user:",
-        session.user.id
-      );
-
-      // Use a transaction to ensure data consistency
-      return await prisma.$transaction(async (tx: typeof prisma) => {
-        // Double-check user exists
-        const user = await tx.user.findUnique({
-          where: { id: session.user.id },
+    try {
+      // Check if similar image already exists (by prompt and provider to avoid exact duplicates)
+      const existingImage = await retryDatabaseOperation(async () => {
+        return await prisma.generatedImage.findFirst({
+          where: {
+            userId: session.user.id,
+            prompt: prompt.trim(),
+            provider,
+            // Optional: also check by image hash to prevent exact duplicates
+            createdAt: {
+              gte: new Date(Date.now() - 60000), // Only check images from last minute
+            },
+          },
         });
+      });
 
-        if (!user) {
-          throw new Error("User not found");
-        }
+      if (existingImage) {
+        console.log("Similar image recently saved:", existingImage.id);
+        return NextResponse.json(
+          {
+            success: true,
+            image: {
+              ...existingImage,
+              displayUrl: `/api/images/${existingImage.id}`,
+            },
+            message: "Similar image recently saved",
+          },
+          { status: 200 }
+        );
+      }
 
-        return await tx.generatedImage.create({
+      // Save image to database
+      const savedImage = await retryDatabaseOperation(async () => {
+        console.log("Attempting to save image to database for user:", session.user.id);
+        
+        return await prisma.generatedImage.create({
           data: {
             userId: session.user.id,
             prompt: prompt.trim(),
-            imageUrl: storedImageUrl,
-            originalUrl: imageUrl, // Keep reference to original
-            storedPathname: storedPathname, // For deletion
+            imageData: processedImageData,
+            mimeType: mimeType,
+            filename: filename,
             provider,
             model: model || null,
             width: safeWidth,
@@ -237,84 +239,104 @@ export async function POST(request: NextRequest) {
           },
         });
       });
-    });
 
-    console.log("Image saved successfully:", savedImage.id);
+      console.log("Image saved successfully:", savedImage.id);
 
-    return NextResponse.json(
-      { success: true, image: savedImage },
-      { status: 201 }
-    );
+      // Return success response with display URL
+      return NextResponse.json(
+        {
+          success: true,
+          image: {
+            ...savedImage,
+            displayUrl: `/api/images/${savedImage.id}`,
+            // Don't return the actual binary data in the response
+            imageData: undefined,
+          },
+        },
+        { status: 201 }
+      );
+    } catch (dbError) {
+      console.error("Database error:", dbError);
+
+      // Handle specific Prisma errors
+      if (dbError && typeof dbError === "object" && "code" in dbError) {
+        const prismaError = dbError as { code: string; message?: string };
+
+        switch (prismaError.code) {
+          case "P5010":
+          case "P1001":
+          case "P1002":
+            // Database connection failed - try filesystem fallback
+            console.log("Database unavailable, attempting filesystem fallback...");
+            try {
+              const fallbackUrl = await saveImageToFileSystem(
+                processedImageData,
+                mimeType,
+                filename,
+                session.user.id
+              );
+              
+              // Return fallback response
+              return NextResponse.json(
+                {
+                  success: true,
+                  image: {
+                    id: `fs_${Date.now()}`,
+                    prompt: prompt.trim(),
+                    displayUrl: fallbackUrl,
+                    provider,
+                    model: model || null,
+                    width: safeWidth,
+                    height: safeHeight,
+                    steps: safeSteps,
+                    createdAt: new Date(),
+                    isFavorite: false,
+                    isPublic: false,
+                  },
+                  message: "Image saved to filesystem (database unavailable)"
+                },
+                { status: 201 }
+              );
+            } catch (fsError) {
+              console.error("Filesystem fallback also failed:", fsError);
+              return NextResponse.json(
+                { error: "Database and filesystem storage both failed. Please try again." },
+                { status: 503 }
+              );
+            }
+          case "P2002":
+            return NextResponse.json(
+              { error: "Image already exists" },
+              { status: 409 }
+            );
+          case "P2025":
+            return NextResponse.json(
+              { error: "User not found" },
+              { status: 404 }
+            );
+          case "P2003":
+            return NextResponse.json(
+              { error: "Invalid user reference" },
+              { status: 400 }
+            );
+          default:
+            console.error("Unhandled Prisma error:", prismaError);
+            return NextResponse.json(
+              { 
+                error: `Database error: ${prismaError.message || "Unknown database error"}` 
+              },
+              { status: 500 }
+            );
+        }
+      }
+
+      return NextResponse.json(
+        { error: "Failed to save image to database" },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error("Save image error details:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined,
-      error,
-    });
-
-    // Handle specific Prisma errors
-    if (error && typeof error === "object" && "code" in error) {
-      const prismaError = error as {
-        code: string;
-        message?: string;
-        meta?: unknown;
-      };
-
-      switch (prismaError.code) {
-        case "P5010":
-        case "P1001":
-        case "P1002":
-          return NextResponse.json(
-            { error: "Database connection failed. Please try again." },
-            { status: 503 }
-          );
-        case "P2002":
-          return NextResponse.json(
-            { error: "Image already exists" },
-            { status: 409 }
-          );
-        case "P2025":
-          return NextResponse.json(
-            { error: "User not found" },
-            { status: 404 }
-          );
-        case "P2003":
-          return NextResponse.json(
-            { error: "Invalid user reference" },
-            { status: 400 }
-          );
-        default:
-          console.error("Unhandled Prisma error:", prismaError);
-          return NextResponse.json(
-            {
-              error: `Database error: ${
-                prismaError.message || "Unknown database error"
-              }`,
-            },
-            { status: 500 }
-          );
-      }
-    }
-
-    // Handle network/timeout errors
-    if (error instanceof Error) {
-      if (error.message.includes("timeout")) {
-        return NextResponse.json(
-          { error: "Request timeout. Please try again." },
-          { status: 408 }
-        );
-      }
-      if (
-        error.message.includes("ECONNREFUSED") ||
-        error.message.includes("ENOTFOUND")
-      ) {
-        return NextResponse.json(
-          { error: "Service temporarily unavailable. Please try again." },
-          { status: 503 }
-        );
-      }
-    }
-
+    console.error("Save image error:", error);
     return NextResponse.json(
       {
         error: `Internal server error: ${

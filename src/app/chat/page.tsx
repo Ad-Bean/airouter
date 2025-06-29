@@ -87,25 +87,25 @@ export default function ChatPage() {
       setIsGenerating(true);
 
       try {
-        // Check if the message is asking for image generation
         if (isImageGenerationRequest()) {
           const providersToUse = providers || selectedProviders;
 
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
-            content: `I'll generate images for you using ${providersToUse.length > 1 ? `${providersToUse.length} AI models` : providersToUse[0]}: "${text}"`,
+            content: `I'll generate images for you using ${
+              providersToUse.length > 1
+                ? `${providersToUse.length} AI models`
+                : providersToUse[0]
+            }: "${text}"`,
             type: "image",
             timestamp: new Date(),
           };
 
           setMessages((prev) => [...prev, assistantMessage]);
 
-          // Try to generate with all selected providers simultaneously
-          const allGeneratedImages: string[] = [];
           const generationPromises = providersToUse.map(async (provider) => {
             try {
-              console.log(`Generating with ${provider}...`);
               const result = await generateImage({
                 prompt: text,
                 provider,
@@ -138,14 +138,17 @@ export default function ChatPage() {
                 images: [],
                 model: null,
                 success: false,
-                error: providerError instanceof Error ? providerError.message : "Unknown error",
+                error:
+                  providerError instanceof Error
+                    ? providerError.message
+                    : "Unknown error",
               };
             }
           });
 
           // Wait for all providers to complete (or fail)
           const results = await Promise.allSettled(generationPromises);
-          
+
           // Collect all successful images
           const successfulResults: Array<{
             provider: string;
@@ -153,9 +156,23 @@ export default function ChatPage() {
             model: string | null;
           }> = [];
 
+          // Collect all successful images for display
+          const allGeneratedImages: string[] = [];
+          const imageDisplayUrls: string[] = [];
+
           results.forEach((result) => {
             if (result.status === "fulfilled" && result.value.success) {
-              allGeneratedImages.push(...result.value.images);
+              result.value.images.forEach((imageData) => {
+                allGeneratedImages.push(imageData);
+                // For display, use the original data URL or convert base64 to data URL
+                if (imageData.startsWith("data:")) {
+                  imageDisplayUrls.push(imageData);
+                } else {
+                  // If it's raw base64, convert to data URL for display
+                  imageDisplayUrls.push(`data:image/png;base64,${imageData}`);
+                }
+              });
+
               successfulResults.push({
                 provider: result.value.provider,
                 images: result.value.images,
@@ -164,19 +181,33 @@ export default function ChatPage() {
             }
           });
 
-          // Save images to database and user gallery (only if user is authenticated)
-          if (session?.user && "id" in session.user && successfulResults.length > 0) {
-            // Save images from all successful providers
-            const allSavePromises: Promise<{ success: boolean; error?: unknown }>[] = [];
-            
+          // Save images to database if user is authenticated
+          if (
+            session?.user &&
+            "id" in session.user &&
+            session.user.id &&
+            successfulResults.length > 0
+          ) {
+            const allSavePromises: Promise<{
+              success: boolean;
+              displayUrl?: string;
+              originalIndex?: number;
+              error?: unknown;
+            }>[] = [];
+
+            let imageIndex = 0;
             successfulResults.forEach((providerResult) => {
-              providerResult.images.forEach((imageUrl) => {
+              providerResult.images.forEach((imageData) => {
+                const currentIndex = imageIndex++;
+
                 const savePromise = (async () => {
                   try {
                     // Add a small delay between saves to reduce database pressure
-                    const delay = allSavePromises.length * 100;
+                    const delay = currentIndex * 100;
                     if (delay > 0) {
-                      await new Promise((resolve) => setTimeout(resolve, delay));
+                      await new Promise((resolve) =>
+                        setTimeout(resolve, delay)
+                      );
                     }
 
                     const saveResponse = await fetch("/api/images/save", {
@@ -184,10 +215,10 @@ export default function ChatPage() {
                       headers: {
                         "Content-Type": "application/json",
                       },
-                      credentials: "include", // Include session cookies
+                      credentials: "include",
                       body: JSON.stringify({
                         prompt: text,
-                        imageUrl,
+                        imageData: imageData, // Send base64 data directly
                         provider: providerResult.provider,
                         model: providerResult.model,
                         width: 1024,
@@ -203,35 +234,78 @@ export default function ChatPage() {
                         saveResponse.status,
                         errorData
                       );
-                      return { success: false, error: errorData };
+                      return {
+                        success: false,
+                        error: errorData,
+                        originalIndex: currentIndex,
+                      };
                     } else {
-                      console.log(`Image from ${providerResult.provider} saved successfully`);
-                      return { success: true };
+                      const saveData = await saveResponse.json();
+                      console.log(
+                        `Image from ${providerResult.provider} saved successfully`
+                      );
+                      return {
+                        success: true,
+                        displayUrl: saveData.image?.displayUrl,
+                        originalIndex: currentIndex,
+                      };
                     }
                   } catch (saveError) {
-                    console.error(`Error saving image from ${providerResult.provider}:`, saveError);
-                    return { success: false, error: saveError };
+                    console.error(
+                      `Error saving image from ${providerResult.provider}:`,
+                      saveError
+                    );
+                    return {
+                      success: false,
+                      error: saveError,
+                      originalIndex: currentIndex,
+                    };
                   }
                 })();
-                
+
                 allSavePromises.push(savePromise);
               });
             });
 
-            // Wait for all saves to complete, but don't block the UI
+            // Wait for all saves to complete and update display URLs
             Promise.allSettled(allSavePromises).then((saveResults) => {
               const successful = saveResults.filter(
                 (r) => r.status === "fulfilled" && r.value.success
               ).length;
               const failed = saveResults.length - successful;
+
+              // Update display URLs for successfully saved images
+              const updatedDisplayUrls = [...imageDisplayUrls];
+              saveResults.forEach((result) => {
+                if (
+                  result.status === "fulfilled" &&
+                  result.value.success &&
+                  result.value.displayUrl &&
+                  typeof result.value.originalIndex === "number"
+                ) {
+                  updatedDisplayUrls[result.value.originalIndex] =
+                    result.value.displayUrl;
+                }
+              });
+
+              // Update the assistant message with the final URLs
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessage.id
+                    ? {
+                        ...msg,
+                        imageUrls: updatedDisplayUrls,
+                      }
+                    : msg
+                )
+              );
+
               if (failed > 0) {
                 console.warn(
                   `${failed} out of ${saveResults.length} images failed to save`
                 );
               } else {
-                console.log(
-                  `All ${successful} images saved successfully`
-                );
+                console.log(`All ${successful} images saved successfully`);
               }
             });
           } else if (allGeneratedImages.length === 0) {
@@ -240,16 +314,24 @@ export default function ChatPage() {
             console.warn("User not authenticated, skipping image save");
           }
 
-          // Update the assistant message with generated images
+          // Update the assistant message with generated images (initial display)
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
                 ? {
                     ...msg,
-                    imageUrls: allGeneratedImages,
+                    imageUrls: imageDisplayUrls,
                     content:
-                      allGeneratedImages.length > 0
-                        ? `Here are your generated images for: "${text}". Generated using ${successfulResults.map(r => r.provider.charAt(0).toUpperCase() + r.provider.slice(1)).join(', ')}. All images are automatically saved to your gallery.`
+                      imageDisplayUrls.length > 0
+                        ? `Here are your generated images for: "${text}". Generated using ${successfulResults
+                            .map(
+                              (r) =>
+                                r.provider.charAt(0).toUpperCase() +
+                                r.provider.slice(1)
+                            )
+                            .join(
+                              ", "
+                            )}. All images are automatically saved to your gallery.`
                         : "Sorry, I couldn't generate any images. Please try again.",
                   }
                 : msg
@@ -491,8 +573,8 @@ export default function ChatPage() {
                       <Loader className="w-4 h-4 animate-spin text-gray-500" />
                       <span className="text-sm text-gray-500 dark:text-gray-400">
                         Generating images with{" "}
-                        {selectedProviders.length > 1 
-                          ? `${selectedProviders.length} AI models` 
+                        {selectedProviders.length > 1
+                          ? `${selectedProviders.length} AI models`
                           : selectedProviders
                               .map((p) =>
                                 p === "openai"
@@ -503,8 +585,8 @@ export default function ChatPage() {
                                   ? "Google Imagen"
                                   : "Replicate"
                               )
-                              .join(", ")
-                        }...
+                              .join(", ")}
+                        ...
                       </span>
                     </div>
                   </div>
@@ -521,7 +603,13 @@ export default function ChatPage() {
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  AI Models {selectedProviders.length > 1 && <span className="text-xs text-blue-600 dark:text-blue-400">(Generate simultaneously)</span>}:
+                  AI Models{" "}
+                  {selectedProviders.length > 1 && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400">
+                      (Generate simultaneously)
+                    </span>
+                  )}
+                  :
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 dark:text-gray-400">

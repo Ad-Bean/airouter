@@ -70,9 +70,15 @@ model GeneratedImage {
   id              String   @id @default(cuid())
   userId          String
   prompt          String   @db.Text
-  imageUrl        String   // Stored image URL (permanent)
+  imageUrl        String?  // Legacy: stored image URL (for backwards compatibility)
   originalUrl     String?  // Original provider URL (temporary)
-  storedPathname  String?  // For deletion from blob storage
+  storedPathname  String?  // For deletion from blob storage (legacy)
+  
+  // New fields for direct binary storage
+  imageData       Bytes?   // Binary image data stored directly in DB
+  mimeType        String?  // MIME type (image/png, image/jpeg, image/svg+xml, etc.)
+  filename        String?  // Original filename or generated name
+  
   provider        String   // "openai", "stability", "replicate", "google"
   model           String?  // Model used
   width           Int      @default(1024)
