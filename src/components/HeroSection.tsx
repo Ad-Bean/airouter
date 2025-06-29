@@ -13,8 +13,8 @@ interface HeroSectionProps {
   onGenerate: () => void;
   error: string | null;
   generatedImages: string[];
-  session: any;
   isAuthenticated: boolean;
+  onAuthRequired?: () => void;
 }
 
 export function HeroSection({
@@ -26,8 +26,8 @@ export function HeroSection({
   onGenerate,
   error,
   generatedImages,
-  session,
   isAuthenticated,
+  onAuthRequired,
 }: HeroSectionProps) {
   return (
     <main className="px-6 py-16">
@@ -69,6 +69,7 @@ export function HeroSection({
               onGenerate={onGenerate}
               error={error}
               isAuthenticated={isAuthenticated}
+              onAuthRequired={onAuthRequired}
             />
 
             <GeneratedImagesDisplay

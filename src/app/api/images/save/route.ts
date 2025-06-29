@@ -6,23 +6,13 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { 
-      prompt, 
-      imageUrl, 
-      provider, 
-      model, 
-      width, 
-      height, 
-      steps 
-    } = await request.json();
+    const { prompt, imageUrl, provider, model, width, height, steps } =
+      await request.json();
 
     if (!prompt || !imageUrl || !provider) {
       return NextResponse.json(

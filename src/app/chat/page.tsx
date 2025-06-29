@@ -1,31 +1,31 @@
-"use client"
+"use client";
 
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function ChatPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
-    if (status === "loading") return
+    if (status === "loading") return;
     if (!session) {
-      router.push("/login?callbackUrl=" + encodeURIComponent("/chat"))
-      return
+      router.push("/login?callbackUrl=" + encodeURIComponent("/chat"));
+      return;
     }
-  }, [session, status, router])
+  }, [session, status, router]);
 
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
-    )
+    );
   }
 
   if (!session) {
-    return null
+    return null;
   }
 
   return (
@@ -35,7 +35,7 @@ export default function ChatPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
             AI Chat Interface
           </h1>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow min-h-[600px] flex flex-col">
             {/* Chat Header */}
             <div className="border-b border-gray-200 dark:border-gray-700 p-4">
@@ -46,19 +46,21 @@ export default function ChatPage() {
                 Welcome, {session.user?.name || session.user?.email}!
               </p>
             </div>
-            
+
             {/* Chat Messages Area */}
             <div className="flex-1 p-4 overflow-y-auto">
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                 <p className="text-blue-700 dark:text-blue-300">
-                  👋 Welcome to the AI Chat! This is where you can have conversations with AI assistants.
+                  👋 Welcome to the AI Chat! This is where you can have
+                  conversations with AI assistants.
                 </p>
                 <p className="text-blue-600 dark:text-blue-400 text-sm mt-2">
-                  This feature is coming soon. For now, you can generate images on the main page!
+                  This feature is coming soon. For now, you can generate images
+                  on the main page!
                 </p>
               </div>
             </div>
-            
+
             {/* Chat Input Area */}
             <div className="border-t border-gray-200 dark:border-gray-700 p-4">
               <div className="flex space-x-4">
@@ -77,7 +79,7 @@ export default function ChatPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="mt-6 text-center">
             <button
               onClick={() => router.push("/")}
@@ -89,5 +91,5 @@ export default function ChatPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

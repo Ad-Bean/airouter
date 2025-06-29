@@ -14,8 +14,8 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { generateImage, type Provider } from "@/lib/api";
 import { Navigation } from "@/components/Navigation";
 import { HeroSection } from "@/components/HeroSection";
@@ -10,10 +9,10 @@ import { FeaturedModelsSection } from "@/components/FeaturedModelsSection";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { CTASection } from "@/components/CTASection";
 import { Footer } from "@/components/Footer";
+import { AuthModal } from "@/components/AuthModal";
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [isDark, setIsDark] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -23,6 +22,7 @@ export default function Home() {
   ]);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -88,10 +88,13 @@ export default function Home() {
     if (!session) {
       // Store the prompt in localStorage so we can restore it after login
       localStorage.setItem("pendingPrompt", prompt);
-      localStorage.setItem("pendingProviders", JSON.stringify(selectedProviders));
+      localStorage.setItem(
+        "pendingProviders",
+        JSON.stringify(selectedProviders)
+      );
 
-      // Redirect to login
-      router.push("/login?callbackUrl=" + encodeURIComponent("/"));
+      // Show auth modal instead of redirecting
+      setShowAuthModal(true);
       return;
     }
 
@@ -115,15 +118,15 @@ export default function Home() {
 
           if (result.success && result.images && result.images.length > 0) {
             setGeneratedImages(result.images);
-            
+
             // Save images to database for authenticated users
             if (session) {
               try {
                 for (const imageUrl of result.images) {
-                  await fetch('/api/images/save', {
-                    method: 'POST',
+                  await fetch("/api/images/save", {
+                    method: "POST",
                     headers: {
-                      'Content-Type': 'application/json',
+                      "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
                       prompt: prompt.trim(),
@@ -137,11 +140,11 @@ export default function Home() {
                   });
                 }
               } catch (saveError) {
-                console.warn('Failed to save image to database:', saveError);
+                console.warn("Failed to save image to database:", saveError);
                 // Don't throw error - image generation was successful
               }
             }
-            
+
             return; // Success, exit early
           }
         } catch (err) {
@@ -167,6 +170,10 @@ export default function Home() {
     }
   };
 
+  const handleAuthRequired = () => {
+    setShowAuthModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
       {/* Background pattern */}
@@ -187,14 +194,19 @@ export default function Home() {
           onGenerate={handleGenerate}
           error={error}
           generatedImages={generatedImages}
-          session={session}
           isAuthenticated={!!session}
+          onAuthRequired={handleAuthRequired}
         />
 
         <FeaturedModelsSection />
         <FeaturesSection />
         <CTASection />
         <Footer />
+
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
       </div>
     </div>
   );
