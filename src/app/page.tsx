@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
@@ -19,13 +20,20 @@ import {
   Sparkles,
   Wand2,
   Paintbrush,
+  Check,
 } from "lucide-react";
+import { generateImage, type Provider } from "@/lib/api";
 
 export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [selectedProviders, setSelectedProviders] = useState<Provider[]>([
+    "openai",
+  ]);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -49,14 +57,90 @@ export default function Home() {
     localStorage.setItem("theme", newTheme ? "dark" : "light");
   };
 
+  const toggleProvider = (provider: Provider) => {
+    setSelectedProviders((prev) => {
+      if (prev.includes(provider)) {
+        // Don't allow removing the last provider
+        if (prev.length === 1) return prev;
+        return prev.filter((p) => p !== provider);
+      } else {
+        return [...prev, provider];
+      }
+    });
+  };
+
+  const getProviderDisplayName = (provider: Provider) => {
+    switch (provider) {
+      case "openai":
+        return "OpenAI DALL-E";
+      case "stability":
+        return "Stability AI";
+      case "replicate":
+        return "Replicate (SDXL)";
+      default:
+        return provider;
+    }
+  };
+
+  const getProviderIcon = (provider: Provider) => {
+    switch (provider) {
+      case "openai":
+        return <Wand2 className="w-5 h-5" />;
+      case "stability":
+        return <Sparkles className="w-5 h-5" />;
+      case "replicate":
+        return <Paintbrush className="w-5 h-5" />;
+      default:
+        return <Brain className="w-5 h-5" />;
+    }
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
     setIsGenerating(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsGenerating(false);
-    // Here you would typically make an actual API call to generate the image
+    setError(null);
+    setGeneratedImages([]);
+
+    try {
+      // Try providers in order until one succeeds
+      let lastError = null;
+
+      for (const provider of selectedProviders) {
+        try {
+          const result = await generateImage({
+            prompt: prompt.trim(),
+            provider,
+            width: 1024,
+            height: 1024,
+            steps: 20,
+          });
+
+          if (result.success && result.images && result.images.length > 0) {
+            setGeneratedImages(result.images);
+            return; // Success, exit early
+          }
+        } catch (err) {
+          lastError = err;
+          console.warn(`Provider ${provider} failed:`, err);
+          // Continue to next provider
+        }
+      }
+
+      // If we get here, all providers failed
+      const errorMessage =
+        lastError instanceof Error
+          ? lastError.message
+          : "All selected providers failed";
+      setError(errorMessage);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(errorMessage);
+      console.error("Generation error:", err);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -180,7 +264,7 @@ export default function Home() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
+                    <div className="flex-1 space-y-4">
                       <input
                         type="text"
                         value={prompt}
@@ -188,13 +272,57 @@ export default function Home() {
                         placeholder="Describe the image you want to generate..."
                         className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
                       />
+
+                      {/* Provider Selection */}
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
+                          Select AI Providers:
+                        </label>
+                        <div className="flex flex-wrap gap-3">
+                          {(
+                            ["openai", "stability", "replicate"] as Provider[]
+                          ).map((provider) => (
+                            <label
+                              key={provider}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all ${
+                                selectedProviders.includes(provider)
+                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                                  : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedProviders.includes(provider)}
+                                onChange={() => toggleProvider(provider)}
+                                className="sr-only"
+                              />
+                              <div
+                                className={`w-6 h-6 rounded flex items-center justify-center ${
+                                  selectedProviders.includes(provider)
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-200 dark:bg-gray-700"
+                                }`}
+                              >
+                                {selectedProviders.includes(provider) ? (
+                                  <Check className="w-4 h-4" />
+                                ) : (
+                                  getProviderIcon(provider)
+                                )}
+                              </div>
+                              <span className="text-sm font-medium">
+                                {getProviderDisplayName(provider)}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                     <motion.button
                       whileHover={{ scale: isGenerating ? 1 : 1.05 }}
                       whileTap={{ scale: isGenerating ? 1 : 0.95 }}
                       onClick={handleGenerate}
                       disabled={isGenerating || !prompt.trim()}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                     >
                       {isGenerating ? (
                         <>
@@ -209,6 +337,15 @@ export default function Home() {
                       )}
                     </motion.button>
                   </div>
+
+                  {/* Error Display */}
+                  {error && (
+                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <p className="text-red-600 dark:text-red-400 text-sm font-medium">
+                        Error: {error}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
                     {[
@@ -225,6 +362,54 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Loading State */}
+                  {isGenerating && (
+                    <div className="mt-8 flex flex-col items-center justify-center py-12">
+                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-600 dark:text-gray-300 text-lg">
+                        Generating your image with{" "}
+                        {selectedProviders
+                          .map(getProviderDisplayName)
+                          .join(", ")}
+                        ...
+                      </p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+                        This may take 10-30 seconds
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Generated Images Display */}
+                  {generatedImages.length > 0 && (
+                    <div className="mt-8">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Generated Images
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {generatedImages.map((imageUrl, index) => (
+                          <div key={index} className="relative group">
+                            <Image
+                              src={imageUrl}
+                              alt={`Generated image ${index + 1}`}
+                              width={512}
+                              height={512}
+                              className="w-full h-auto rounded-lg shadow-lg transition-transform duration-300 group-hover:scale-105"
+                              unoptimized={true}
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 rounded-lg flex items-center justify-center">
+                              <button
+                                onClick={() => window.open(imageUrl, "_blank")}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 px-4 py-2 bg-white bg-opacity-90 rounded-lg text-gray-900 font-medium hover:bg-opacity-100"
+                              >
+                                View Full Size
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
 
