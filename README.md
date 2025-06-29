@@ -91,6 +91,12 @@ bun dev
 - **Strengths**: Open source, flexible
 - **Best for**: Experimental generation, custom models
 
+### Google Imagen
+
+- **Models**: Imagen 4.0
+- **Strengths**: High quality, latest Google AI
+- **Best for**: State-of-the-art image generation, natural scenes
+
 ## API Endpoints
 
 ### POST `/api/generate`

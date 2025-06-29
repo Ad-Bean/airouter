@@ -3,8 +3,16 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { generateImage, type Provider } from "@/lib/api";
-import { Send, Image as ImageIcon, User, Bot, Loader } from "lucide-react";
+import { generateImage, type Provider, providerModels } from "@/lib/api";
+import {
+  Send,
+  Image as ImageIcon,
+  User,
+  Bot,
+  Loader,
+  Plus,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import { Navigation } from "@/components/Navigation";
 
@@ -26,6 +34,10 @@ export default function ChatPage() {
   const [selectedProviders, setSelectedProviders] = useState<Provider[]>([
     "openai",
   ]);
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
+    google: "imagen-4.0-generate-preview-06-06", // Default to latest
+  });
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -96,6 +108,7 @@ export default function ChatPage() {
               const result = await generateImage({
                 prompt: text,
                 provider,
+                model: selectedModels[provider], // Use selected model for this provider
                 width: 1024,
                 height: 1024,
                 steps: 20,
@@ -171,7 +184,7 @@ export default function ChatPage() {
         setIsGenerating(false);
       }
     },
-    [input, isGenerating, selectedProviders]
+    [input, isGenerating, selectedProviders, selectedModels]
   );
 
   // Restore pending prompt and auto-generate if exists
@@ -371,28 +384,51 @@ export default function ChatPage() {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   AI Models:
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {selectedProviders.length} selected
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {selectedProviders.length} selected
+                  </span>
+                  <button
+                    onClick={() => setShowModelSelector(true)}
+                    className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Configure Models
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(["openai", "replicate", "stability"] as Provider[]).map(
-                  (provider) => (
-                    <button
-                      key={provider}
-                      onClick={() => toggleProvider(provider)}
-                      className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                        selectedProviders.includes(provider)
-                          ? "bg-blue-500 text-white border-blue-500"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
-                      }`}
-                    >
-                      {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                      {provider === "openai" && " (DALL-E)"}
-                      {provider === "stability" && " (SDXL)"}
-                    </button>
-                  )
-                )}
+                {(
+                  ["openai", "replicate", "stability", "google"] as Provider[]
+                ).map((provider) => (
+                  <button
+                    key={provider}
+                    onClick={() => toggleProvider(provider)}
+                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                      selectedProviders.includes(provider)
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                    {provider === "openai" && " (DALL-E)"}
+                    {provider === "stability" && " (SDXL)"}
+                    {provider === "google" && " (Imagen)"}
+                    {selectedModels[provider] && provider === "google" && (
+                      <span className="ml-1 text-xs opacity-75">
+                        {selectedModels[provider].includes("4.0-fast")
+                          ? "Fast"
+                          : selectedModels[provider].includes("4.0-ultra")
+                          ? "Ultra"
+                          : selectedModels[provider].includes("4.0")
+                          ? "4.0"
+                          : selectedModels[provider].includes("3.0")
+                          ? "3.0"
+                          : ""}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -420,6 +456,108 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
+
+        {/* Model Selector Modal */}
+        {showModelSelector && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[80vh] overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Configure AI Models
+                </h3>
+                <button
+                  onClick={() => setShowModelSelector(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 max-h-[60vh] overflow-y-auto">
+                {/* Google Models Section */}
+                {selectedProviders.includes("google") && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4" />
+                      Google Imagen Models
+                    </h4>
+                    <div className="space-y-2">
+                      {providerModels.google.map((model) => (
+                        <label
+                          key={model.id}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                            selectedModels.google === model.id
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                              : "border-gray-200 dark:border-gray-600"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="google-model"
+                            value={model.id}
+                            checked={selectedModels.google === model.id}
+                            onChange={(e) =>
+                              setSelectedModels((prev) => ({
+                                ...prev,
+                                google: e.target.value,
+                              }))
+                            }
+                            className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900 dark:text-white">
+                              {model.name}
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {model.description}
+                            </div>
+                            {model.id.includes("preview") && (
+                              <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
+                                Preview
+                              </span>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Section */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                    Model Information
+                  </h5>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    • <strong>4.0 Ultra:</strong> Highest quality, slower
+                    generation
+                    <br />• <strong>4.0 Fast:</strong> Good quality, faster
+                    generation
+                    <br />• <strong>3.0:</strong> Stable and reliable
+                    performance
+                    <br />• <strong>Preview models:</strong> Latest features,
+                    may have limitations
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setShowModelSelector(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowModelSelector(false)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  Apply Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

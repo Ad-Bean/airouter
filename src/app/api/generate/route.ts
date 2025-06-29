@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateWithOpenAI } from "@/lib/providers/openai";
 import { generateWithStabilityAI } from "@/lib/providers/stability";
 import { generateWithReplicateSD } from "@/lib/providers/replicate";
+import { generateWithGoogle } from "@/lib/providers/google";
 import { isProviderEnabled } from "@/lib/config";
 
-export type Provider = "openai" | "stability" | "replicate";
+export type Provider = "openai" | "stability" | "replicate" | "google";
 
 interface GenerateRequest {
   prompt: string;
@@ -76,6 +77,14 @@ export async function POST(request: NextRequest) {
           width,
           height,
           num_inference_steps: steps,
+        });
+        break;
+
+      case "google":
+        result = await generateWithGoogle({
+          prompt,
+          model: model || "imagen-4.0-generate-preview-05-20",
+          sampleCount: 1,
         });
         break;
 

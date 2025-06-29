@@ -1,4 +1,4 @@
-import { Check, Wand2, Sparkles, Paintbrush } from "lucide-react";
+import { Check, Wand2, Sparkles, Paintbrush, ImageIcon } from "lucide-react";
 import { Provider } from "@/lib/api";
 
 interface ProviderSelectorProps {
@@ -22,6 +22,11 @@ const providerConfig = {
     icon: <Paintbrush className="w-5 h-5" />,
     color: "from-violet-500 to-indigo-600",
   },
+  google: {
+    name: "Google Imagen",
+    icon: <ImageIcon className="w-5 h-5" />,
+    color: "from-red-500 to-orange-600",
+  },
 } as const;
 
 export function ProviderSelector({
@@ -34,7 +39,7 @@ export function ProviderSelector({
         Select AI Providers:
       </label>
       <div className="flex flex-wrap gap-3">
-        {(["openai", "stability", "replicate"] as Provider[]).map(
+        {(["openai", "stability", "replicate", "google"] as Provider[]).map(
           (provider) => {
             const config = providerConfig[provider];
             const isSelected = selectedProviders.includes(provider);
