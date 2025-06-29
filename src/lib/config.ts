@@ -16,14 +16,14 @@ export const providerConfigs: Record<string, ProviderConfig> = {
     enabled: !!process.env.OPENAI_API_KEY,
     models: [
       {
+        id: "dall-e-2",
+        name: "DALL-E 2",
+        description: "Faster and more reliable",
+      },
+      {
         id: "dall-e-3",
         name: "DALL-E 3",
         description: "Latest and most capable model",
-      },
-      {
-        id: "dall-e-2",
-        name: "DALL-E 2",
-        description: "Previous generation, faster",
       },
     ],
   },

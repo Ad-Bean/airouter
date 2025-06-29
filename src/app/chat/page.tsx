@@ -94,18 +94,18 @@ export default function ChatPage() {
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
-            content: `I'll generate an image for you: "${text}"`,
+            content: `I'll generate images for you using ${providersToUse.length > 1 ? `${providersToUse.length} AI models` : providersToUse[0]}: "${text}"`,
             type: "image",
             timestamp: new Date(),
           };
 
           setMessages((prev) => [...prev, assistantMessage]);
 
-          // Try to generate with each provider
-          let generatedImages: string[] = [];
-
-          for (const provider of providersToUse) {
+          // Try to generate with all selected providers simultaneously
+          const allGeneratedImages: string[] = [];
+          const generationPromises = providersToUse.map(async (provider) => {
             try {
+              console.log(`Generating with ${provider}...`);
               const result = await generateImage({
                 prompt: text,
                 provider,
@@ -116,31 +116,128 @@ export default function ChatPage() {
               });
 
               if (result.success && result.images && result.images.length > 0) {
-                generatedImages = result.images;
-
-                // Save images to database
-                for (const imageUrl of result.images) {
-                  await fetch("/api/images/save", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      prompt: text,
-                      imageUrl,
-                      provider,
-                      model: result.model,
-                      width: 1024,
-                      height: 1024,
-                      steps: 20,
-                    }),
-                  });
-                }
-                break; // Success, stop trying other providers
+                return {
+                  provider,
+                  images: result.images,
+                  model: result.model,
+                  success: true,
+                };
+              } else {
+                return {
+                  provider,
+                  images: [],
+                  model: result.model,
+                  success: false,
+                  error: "No images generated",
+                };
               }
             } catch (providerError) {
               console.warn(`Provider ${provider} failed:`, providerError);
+              return {
+                provider,
+                images: [],
+                model: null,
+                success: false,
+                error: providerError instanceof Error ? providerError.message : "Unknown error",
+              };
             }
+          });
+
+          // Wait for all providers to complete (or fail)
+          const results = await Promise.allSettled(generationPromises);
+          
+          // Collect all successful images
+          const successfulResults: Array<{
+            provider: string;
+            images: string[];
+            model: string | null;
+          }> = [];
+
+          results.forEach((result) => {
+            if (result.status === "fulfilled" && result.value.success) {
+              allGeneratedImages.push(...result.value.images);
+              successfulResults.push({
+                provider: result.value.provider,
+                images: result.value.images,
+                model: result.value.model,
+              });
+            }
+          });
+
+          // Save images to database and user gallery (only if user is authenticated)
+          if (session?.user && "id" in session.user && successfulResults.length > 0) {
+            // Save images from all successful providers
+            const allSavePromises: Promise<{ success: boolean; error?: unknown }>[] = [];
+            
+            successfulResults.forEach((providerResult) => {
+              providerResult.images.forEach((imageUrl) => {
+                const savePromise = (async () => {
+                  try {
+                    // Add a small delay between saves to reduce database pressure
+                    const delay = allSavePromises.length * 100;
+                    if (delay > 0) {
+                      await new Promise((resolve) => setTimeout(resolve, delay));
+                    }
+
+                    const saveResponse = await fetch("/api/images/save", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      credentials: "include", // Include session cookies
+                      body: JSON.stringify({
+                        prompt: text,
+                        imageUrl,
+                        provider: providerResult.provider,
+                        model: providerResult.model,
+                        width: 1024,
+                        height: 1024,
+                        steps: 20,
+                      }),
+                    });
+
+                    if (!saveResponse.ok) {
+                      const errorData = await saveResponse.text();
+                      console.error(
+                        `Failed to save image from ${providerResult.provider}:`,
+                        saveResponse.status,
+                        errorData
+                      );
+                      return { success: false, error: errorData };
+                    } else {
+                      console.log(`Image from ${providerResult.provider} saved successfully`);
+                      return { success: true };
+                    }
+                  } catch (saveError) {
+                    console.error(`Error saving image from ${providerResult.provider}:`, saveError);
+                    return { success: false, error: saveError };
+                  }
+                })();
+                
+                allSavePromises.push(savePromise);
+              });
+            });
+
+            // Wait for all saves to complete, but don't block the UI
+            Promise.allSettled(allSavePromises).then((saveResults) => {
+              const successful = saveResults.filter(
+                (r) => r.status === "fulfilled" && r.value.success
+              ).length;
+              const failed = saveResults.length - successful;
+              if (failed > 0) {
+                console.warn(
+                  `${failed} out of ${saveResults.length} images failed to save`
+                );
+              } else {
+                console.log(
+                  `All ${successful} images saved successfully`
+                );
+              }
+            });
+          } else if (allGeneratedImages.length === 0) {
+            console.warn("No images were generated from any provider");
+          } else {
+            console.warn("User not authenticated, skipping image save");
           }
 
           // Update the assistant message with generated images
@@ -149,11 +246,11 @@ export default function ChatPage() {
               msg.id === assistantMessage.id
                 ? {
                     ...msg,
-                    imageUrls: generatedImages,
+                    imageUrls: allGeneratedImages,
                     content:
-                      generatedImages.length > 0
-                        ? `Here's your generated image for: "${text}"`
-                        : "Sorry, I couldn't generate an image. Please try again.",
+                      allGeneratedImages.length > 0
+                        ? `Here are your generated images for: "${text}". Generated using ${successfulResults.map(r => r.provider.charAt(0).toUpperCase() + r.provider.slice(1)).join(', ')}. All images are automatically saved to your gallery.`
+                        : "Sorry, I couldn't generate any images. Please try again.",
                   }
                 : msg
             )
@@ -185,7 +282,7 @@ export default function ChatPage() {
         setIsGenerating(false);
       }
     },
-    [input, isGenerating, selectedProviders, selectedModels]
+    [input, isGenerating, selectedProviders, selectedModels, session]
   );
 
   // Restore pending prompt and auto-generate if exists
@@ -352,16 +449,27 @@ export default function ChatPage() {
                     <p className="text-sm">{message.content}</p>
                     {message.imageUrls && message.imageUrls.length > 0 && (
                       <div className="mt-2 space-y-2">
-                        {message.imageUrls.map((url, index) => (
-                          <Image
-                            key={index}
-                            src={url}
-                            alt={`Generated image ${index + 1}`}
-                            width={512}
-                            height={512}
-                            className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600"
-                          />
-                        ))}
+                        {message.imageUrls.map((url, index) => {
+                          // Check if it's a data URL or needs unoptimized loading
+                          const isDataUrl = url.startsWith("data:");
+                          const isExternalUrl =
+                            url.startsWith("http") &&
+                            !url.includes("localhost");
+                          const needsUnoptimized = isDataUrl || isExternalUrl;
+
+                          return (
+                            <Image
+                              key={index}
+                              src={url}
+                              alt={`Generated image ${index + 1}`}
+                              width={512}
+                              height={512}
+                              className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600"
+                              unoptimized={needsUnoptimized}
+                              priority={index === 0} // Prioritize first image
+                            />
+                          );
+                        })}
                       </div>
                     )}
                     <p className="text-xs opacity-70 mt-1">
@@ -382,7 +490,21 @@ export default function ChatPage() {
                     <div className="flex items-center space-x-2">
                       <Loader className="w-4 h-4 animate-spin text-gray-500" />
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        Generating your image...
+                        Generating images with{" "}
+                        {selectedProviders.length > 1 
+                          ? `${selectedProviders.length} AI models` 
+                          : selectedProviders
+                              .map((p) =>
+                                p === "openai"
+                                  ? "OpenAI DALL-E"
+                                  : p === "stability"
+                                  ? "Stability AI"
+                                  : p === "google"
+                                  ? "Google Imagen"
+                                  : "Replicate"
+                              )
+                              .join(", ")
+                        }...
                       </span>
                     </div>
                   </div>
@@ -399,7 +521,7 @@ export default function ChatPage() {
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  AI Models:
+                  AI Models {selectedProviders.length > 1 && <span className="text-xs text-blue-600 dark:text-blue-400">(Generate simultaneously)</span>}:
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 dark:text-gray-400">

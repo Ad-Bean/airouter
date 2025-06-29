@@ -2,24 +2,96 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Navigation } from "@/components/Navigation";
+import Image from "next/image";
+import {
+  ImageIcon,
+  Heart,
+  TrendingUp,
+  BarChart3,
+  Eye,
+  Sparkles,
+} from "lucide-react";
+
+interface DashboardStats {
+  totalImages: number;
+  favoriteImages: number;
+  recentImages: number;
+  providerStats: Record<string, number>;
+  recentImagesList: Array<{
+    id: string;
+    prompt: string;
+    imageUrl: string;
+    provider: string;
+    createdAt: string;
+  }>;
+}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isDark, setIsDark] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (status === "loading") return; // Still loading
+    if (status === "loading") return;
     if (!session) {
-      router.push("/login");
+      router.push("/");
       return;
     }
+    fetchStats();
   }, [session, status, router]);
 
-  if (status === "loading") {
+  useEffect(() => {
+    setMounted(true);
+    const savedTheme = localStorage.getItem("theme");
+    const systemPrefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+    const shouldUseDark =
+      savedTheme === "dark" || (!savedTheme && systemPrefersDark);
+    setIsDark(shouldUseDark);
+    document.documentElement.classList.toggle("dark", shouldUseDark);
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch("/api/dashboard/stats");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleTheme = () => {
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+    document.documentElement.classList.toggle("dark", newTheme);
+    localStorage.setItem("theme", newTheme ? "dark" : "light");
+  };
+
+  const handleShowLogin = () => {
+    router.push("/?showLogin=true");
+  };
+
+  const handleShowRegister = () => {
+    router.push("/?showRegister=true");
+  };
+
+  if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">
+          Loading...
+        </div>
       </div>
     );
   }
@@ -29,62 +101,250 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-              Welcome, {session.user?.name || session.user?.email}!
+    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
+      {/* Background pattern */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-gray-800/30 dark:to-gray-900/30"></div>
+
+      <div className="relative z-10">
+        <Navigation
+          isDark={isDark}
+          mounted={mounted}
+          onToggleTheme={toggleTheme}
+          onShowLogin={handleShowLogin}
+          onShowRegister={handleShowRegister}
+        />
+
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Welcome back, {session.user?.name || session.user?.email}!
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-8">
-              This is your AI image generation dashboard. Start creating amazing
-              images with AI!
+            <p className="text-gray-600 dark:text-gray-400">
+              Here&apos;s an overview of your AI image generation activity.
             </p>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Images Generated
-                </h3>
-                <p className="text-3xl font-bold text-indigo-600">0</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Total images created
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Favorite Images
-                </h3>
-                <p className="text-3xl font-bold text-indigo-600">0</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Images you&apos;ve favorited
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Account Type
-                </h3>
-                <p className="text-lg font-semibold text-green-600">Free</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Current plan
-                </p>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Total Images */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Total Images
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {stats?.totalImages || 0}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <ImageIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
               </div>
             </div>
 
-            <div className="flex space-x-4">
+            {/* Favorite Images */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Favorites
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {stats?.favoriteImages || 0}
+                  </p>
+                </div>
+                <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <Heart className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    This Week
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {stats?.recentImages || 0}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Account Status */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Account
+                  </p>
+                  <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                    Free Plan
+                  </p>
+                </div>
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                  <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Provider Stats & Recent Images */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* Provider Stats */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Images by Provider
+                </h3>
+                <BarChart3 className="w-5 h-5 text-gray-400" />
+              </div>
+
+              {stats?.providerStats &&
+              Object.keys(stats.providerStats).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(stats.providerStats).map(
+                    ([provider, count]) => (
+                      <div
+                        key={provider}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div
+                            className={`w-3 h-3 rounded-full ${
+                              provider === "openai"
+                                ? "bg-blue-500"
+                                : provider === "google"
+                                ? "bg-red-500"
+                                : provider === "stability"
+                                ? "bg-green-500"
+                                : provider === "replicate"
+                                ? "bg-purple-500"
+                                : "bg-gray-500"
+                            }`}
+                          ></div>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+                            {provider === "openai"
+                              ? "DALL-E"
+                              : provider === "google"
+                              ? "Imagen"
+                              : provider === "stability"
+                              ? "SDXL"
+                              : provider}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {count}
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No images yet
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Start generating to see stats
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Recent Images */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Recent Images
+                </h3>
+                <Eye className="w-5 h-5 text-gray-400" />
+              </div>
+
+              {stats?.recentImagesList && stats.recentImagesList.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {stats.recentImagesList.map((image) => (
+                    <div
+                      key={image.id}
+                      className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                      onClick={() => router.push("/gallery")}
+                    >
+                      <Image
+                        src={image.imageUrl}
+                        alt={image.prompt}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-200"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                        <p className="text-xs text-white truncate">
+                          {image.prompt}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No recent images
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Generate your first image
+                  </p>
+                </div>
+              )}
+
+              {stats?.recentImagesList && stats.recentImagesList.length > 0 && (
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => router.push("/gallery")}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                  >
+                    View all images →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Quick Actions
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <button
-                onClick={() => router.push("/")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded"
+                onClick={() => router.push("/chat")}
+                className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
               >
-                Generate Images
+                <Sparkles className="w-5 h-5" />
+                <span>Generate Images</span>
               </button>
+
               <button
                 onClick={() => router.push("/gallery")}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                className="flex items-center justify-center space-x-2 bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
               >
-                View Gallery
+                <ImageIcon className="w-5 h-5" />
+                <span>View Gallery</span>
+              </button>
+
+              <button
+                onClick={() => router.push("/gallery?filter=favorites")}
+                className="flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+              >
+                <Heart className="w-5 h-5" />
+                <span>My Favorites</span>
               </button>
             </div>
           </div>

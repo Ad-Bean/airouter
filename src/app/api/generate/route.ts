@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateWithOpenAI } from "@/lib/providers/openai";
+import { generateWithOpenAIMock } from "@/lib/providers/openai-mock";
 import { generateWithStabilityAI } from "@/lib/providers/stability";
 import { generateWithReplicateSD } from "@/lib/providers/replicate";
 import { generateWithGoogle } from "@/lib/providers/google";
@@ -49,16 +50,30 @@ export async function POST(request: NextRequest) {
 
     switch (provider) {
       case "openai":
-        result = await generateWithOpenAI({
-          prompt,
-          model: model as "dall-e-2" | "dall-e-3" | undefined,
-          size: `${width}x${height}` as
-            | "256x256"
-            | "512x512"
-            | "1024x1024"
-            | "1792x1024"
-            | "1024x1792",
-        });
+        // Use mock for testing if enabled
+        if (process.env.USE_OPENAI_MOCK === "true") {
+          result = await generateWithOpenAIMock({
+            prompt,
+            model: (model as "dall-e-2" | "dall-e-3" | undefined) || "dall-e-2",
+            size: `${width}x${height}` as
+              | "256x256"
+              | "512x512"
+              | "1024x1024"
+              | "1792x1024"
+              | "1024x1792",
+          });
+        } else {
+          result = await generateWithOpenAI({
+            prompt,
+            model: (model as "dall-e-2" | "dall-e-3" | undefined) || "dall-e-2",
+            size: `${width}x${height}` as
+              | "256x256"
+              | "512x512"
+              | "1024x1024"
+              | "1792x1024"
+              | "1024x1792",
+          });
+        }
         break;
 
       case "stability":
