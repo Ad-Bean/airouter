@@ -38,18 +38,31 @@ export default function Home() {
 
     setIsDark(shouldUseDark);
     document.documentElement.classList.toggle("dark", shouldUseDark);
-  }, []);
 
-  // Only redirect to chat if user just signed in with pending content
+    // Check URL parameters for showing auth modal
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("showLogin") === "true") {
+      setAuthModalTab("login");
+      setShowAuthModal(true);
+      // Clean up URL
+      window.history.replaceState({}, "", "/");
+    } else if (urlParams.get("showRegister") === "true") {
+      setAuthModalTab("register");
+      setShowAuthModal(true);
+      // Clean up URL
+      window.history.replaceState({}, "", "/");
+    }
+  }, []); // Redirect to chat if user just signed in with pending content
   useEffect(() => {
     if (session && status === "authenticated") {
-      const pendingPrompt = localStorage.getItem("pendingPrompt");
-      const pendingProviders = localStorage.getItem("pendingProviders");
       const shouldRedirect = localStorage.getItem("shouldRedirectToChat");
 
-      if (shouldRedirect === "true" && (pendingPrompt || pendingProviders)) {
-        // Redirect to chat page if there's pending content from a generate attempt
-        localStorage.removeItem("shouldRedirectToChat"); // Clear the flag
+      // Only redirect if there's an explicit redirect flag (from auth success)
+      if (shouldRedirect === "true") {
+        // Clear the redirect flag
+        localStorage.removeItem("shouldRedirectToChat");
+
+        // Redirect to chat page
         router.push("/chat");
         return;
       }
@@ -105,6 +118,12 @@ export default function Home() {
     setShowAuthModal(true);
   };
 
+  const handleAuthSuccess = () => {
+    // Set flag to redirect to chat after successful authentication
+    localStorage.setItem("shouldRedirectToChat", "true");
+    setShowAuthModal(false);
+  };
+
   const handleShowLogin = () => {
     setAuthModalTab("login");
     setShowAuthModal(true);
@@ -149,6 +168,7 @@ export default function Home() {
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={handleAuthSuccess}
           defaultTab={authModalTab}
         />
       </div>

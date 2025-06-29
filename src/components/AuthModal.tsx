@@ -8,12 +8,14 @@ import { X, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAuthSuccess?: () => void;
   defaultTab?: "login" | "register";
 }
 
 export function AuthModal({
   isOpen,
   onClose,
+  onAuthSuccess,
   defaultTab = "login",
 }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState<"login" | "register">(defaultTab);
@@ -45,6 +47,8 @@ export function AuthModal({
         if (result?.error) {
           setError("Invalid email or password");
         } else {
+          // Call the success callback before closing
+          onAuthSuccess?.();
           onClose();
         }
       } else {
@@ -74,6 +78,8 @@ export function AuthModal({
           if (result?.error) {
             setError("Registration successful, but login failed");
           } else {
+            // Call the success callback before closing
+            onAuthSuccess?.();
             onClose();
           }
         } else {
@@ -90,6 +96,9 @@ export function AuthModal({
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
+      // Set redirect flag before Google OAuth since it will redirect away
+      localStorage.setItem("shouldRedirectToChat", "true");
+
       // Use callbackUrl to redirect back to home page after Google OAuth
       await signIn("google", {
         callbackUrl: "/",
