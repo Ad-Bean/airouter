@@ -96,15 +96,17 @@ export function AuthModal({
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      // Set redirect flag before Google OAuth since it will redirect away
-      localStorage.setItem("shouldRedirectToChat", "true");
+      const pendingPrompt = localStorage.getItem("pendingPrompt");
+      const pendingProviders = localStorage.getItem("pendingProviders");
 
-      // Use callbackUrl to redirect back to home page after Google OAuth
+      if (pendingPrompt || pendingProviders) {
+        localStorage.setItem("shouldRedirectToChat", "true");
+      }
+
       await signIn("google", {
-        callbackUrl: "/",
+        callbackUrl: "/chat",
         redirect: true,
       });
-      // Note: We don't close the modal here since we're redirecting
     } catch {
       setError("Google sign in failed");
       setIsLoading(false);

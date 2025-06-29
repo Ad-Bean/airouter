@@ -56,15 +56,27 @@ export default function Home() {
   useEffect(() => {
     if (session && status === "authenticated") {
       const shouldRedirect = localStorage.getItem("shouldRedirectToChat");
+      const pendingPrompt = localStorage.getItem("pendingPrompt");
+      const pendingProviders = localStorage.getItem("pendingProviders");
 
-      // Only redirect if there's an explicit redirect flag (from auth success)
-      if (shouldRedirect === "true") {
-        // Clear the redirect flag
+      // Redirect if there's an explicit redirect flag AND we have pending content
+      // or if user came from a generate action (has pending prompt/providers)
+      if (shouldRedirect === "true" && (pendingPrompt || pendingProviders)) {
+        // Small delay to ensure the session is fully established after OAuth
+        const redirectTimer = setTimeout(() => {
+          // Clear the redirect flag
+          localStorage.removeItem("shouldRedirectToChat");
+
+          // Redirect to chat page
+          router.push("/chat");
+        }, 100);
+
+        return () => clearTimeout(redirectTimer);
+      }
+
+      // Clean up stale redirect flag if no pending content
+      if (shouldRedirect === "true" && !pendingPrompt && !pendingProviders) {
         localStorage.removeItem("shouldRedirectToChat");
-
-        // Redirect to chat page
-        router.push("/chat");
-        return;
       }
     }
   }, [session, status, router]);
@@ -119,8 +131,14 @@ export default function Home() {
   };
 
   const handleAuthSuccess = () => {
-    // Set flag to redirect to chat after successful authentication
-    localStorage.setItem("shouldRedirectToChat", "true");
+    // Only set flag to redirect to chat if there's pending content from a generate action
+    const pendingPrompt = localStorage.getItem("pendingPrompt");
+    const pendingProviders = localStorage.getItem("pendingProviders");
+
+    if (pendingPrompt || pendingProviders) {
+      localStorage.setItem("shouldRedirectToChat", "true");
+    }
+
     setShowAuthModal(false);
   };
 

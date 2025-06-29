@@ -5,8 +5,11 @@ export interface GoogleGenerateParams {
   model?: string;
   sampleCount?: number;
   aspectRatio?: string;
-  safetyFilterLevel?: string;
+  safetySetting?: string;
   personGeneration?: string;
+  addWatermark?: boolean;
+  seed?: number;
+  enhancePrompt?: boolean;
 }
 
 export interface GoogleGenerateResponse {
@@ -28,11 +31,27 @@ function getGoogleAuth(): GoogleAuth {
       throw new Error("GOOGLE_CLOUD_LOCATION environment variable not set");
     }
 
-    auth = new GoogleAuth({
+    const authOptions: {
+      scopes: string[];
+      credentials?: Record<string, unknown>;
+    } = {
       scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-      // If running in Google Cloud, this will use the service account automatically
-      // If running locally, set GOOGLE_APPLICATION_CREDENTIALS to your service account JSON file
-    });
+    };
+
+    // Support JSON credentials as environment variable
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+      try {
+        authOptions.credentials = JSON.parse(
+          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
+        );
+      } catch {
+        throw new Error("Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON format");
+      }
+    }
+    // If GOOGLE_APPLICATION_CREDENTIALS is set, GoogleAuth will use it automatically
+    // If running in Google Cloud, it will use the default service account
+
+    auth = new GoogleAuth(authOptions);
   }
   return auth;
 }
@@ -45,8 +64,11 @@ export async function generateWithGoogle(
     model = "imagen-4.0-generate-preview-06-06",
     sampleCount = 1,
     aspectRatio = "1:1",
-    safetyFilterLevel = "block_some",
+    safetySetting = "block_medium_and_above", // Updated to match API docs
     personGeneration = "allow_adult",
+    addWatermark = true,
+    seed,
+    enhancePrompt = false,
   } = params;
 
   try {
@@ -71,8 +93,11 @@ export async function generateWithGoogle(
       parameters: {
         sampleCount: sampleCount,
         aspectRatio: aspectRatio,
-        safetyFilterLevel: safetyFilterLevel,
+        safetySetting: safetySetting, // Updated parameter name
         personGeneration: personGeneration,
+        addWatermark: addWatermark,
+        ...(seed !== undefined && { seed }), // Only include if provided
+        enhancePrompt: enhancePrompt,
       },
     };
 
@@ -87,6 +112,13 @@ export async function generateWithGoogle(
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("Google Vertex AI API Error Details:", {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText,
+        endpoint,
+        requestBody,
+      });
       throw new Error(
         `Google Vertex AI API error: ${response.status} ${response.statusText}\n${errorText}`
       );

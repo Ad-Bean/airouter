@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       case "google":
         result = await generateWithGoogle({
           prompt,
-          model: model || "imagen-4.0-generate-preview-05-20",
+          model: model || "imagen-4.0-generate-preview-06-06", // Updated to latest model
           sampleCount: 1,
         });
         break;

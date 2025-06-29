@@ -103,6 +103,7 @@ export default function ChatPage() {
 
           // Try to generate with each provider
           let generatedImages: string[] = [];
+
           for (const provider of providersToUse) {
             try {
               const result = await generateImage({
@@ -192,6 +193,7 @@ export default function ChatPage() {
     if (session && status === "authenticated") {
       const pendingPrompt = localStorage.getItem("pendingPrompt");
       const pendingProviders = localStorage.getItem("pendingProviders");
+      const savedModels = localStorage.getItem("selectedModels");
 
       if (pendingPrompt) {
         setInput(pendingPrompt);
@@ -208,8 +210,23 @@ export default function ChatPage() {
           console.warn("Failed to parse pending providers:", error);
         }
       }
+
+      // Restore saved model selections
+      if (savedModels) {
+        try {
+          const models = JSON.parse(savedModels);
+          setSelectedModels(models);
+        } catch (error) {
+          console.warn("Failed to parse saved models:", error);
+        }
+      }
     }
   }, [session, status]);
+
+  // Save model selections to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("selectedModels", JSON.stringify(selectedModels));
+  }, [selectedModels]);
 
   const toggleTheme = () => {
     const newTheme = !isDark;
