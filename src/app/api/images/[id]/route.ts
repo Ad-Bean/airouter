@@ -9,20 +9,48 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const image = await prisma.generatedImage.findUnique({
-      where: { id },
-      select: {
-        s3Url: true,
-        s3Key: true,
-        s3Bucket: true,
-        imagePath: true,
-        mimeType: true,
-        filename: true,
-        imageUrl: true,
-        isPublic: true,
-        userId: true,
-      },
-    });
+    let image;
+    try {
+      image = await prisma.generatedImage.findUnique({
+        where: { id },
+        select: {
+          s3Url: true,
+          s3Key: true,
+          s3Bucket: true,
+          imagePath: true,
+          mimeType: true,
+          filename: true,
+          imageUrl: true,
+          isPublic: true,
+          userId: true,
+        },
+      });
+    } catch (dbError) {
+      console.error("Database error when fetching image:", dbError);
+
+      // If database is down, return a placeholder image
+      const placeholderSvg = `
+        <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+          <rect width="400" height="400" fill="#f3f4f6"/>
+          <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6b7280">
+            Image Unavailable
+          </text>
+          <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9ca3af">
+            Database temporarily unavailable
+          </text>
+          <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#d1d5db">
+            Image ID: ${id}
+          </text>
+        </svg>
+      `;
+
+      return new NextResponse(placeholderSvg, {
+        headers: {
+          "Content-Type": "image/svg+xml",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
 
     if (!image) {
       return NextResponse.json({ error: "Image not found" }, { status: 404 });

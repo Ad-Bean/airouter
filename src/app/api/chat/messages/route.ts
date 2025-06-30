@@ -55,6 +55,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message, sessionId: chatSessionId });
   } catch (error) {
     console.error("Error saving chat message:", error);
+
+    // Check if it's a Prisma connection error
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P5010"
+    ) {
+      return NextResponse.json(
+        { error: "Database temporarily unavailable. Message not saved." },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to save chat message" },
       { status: 500 }

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 // GET /api/chat/sessions/[id] - Get specific chat session with messages
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,6 +14,8 @@ export async function GET(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const params = await context.params;
 
     const chatSession = await prisma.chatSession.findFirst({
       where: {
@@ -39,6 +41,20 @@ export async function GET(
     return NextResponse.json({ session: chatSession });
   } catch (error) {
     console.error("Error fetching chat session:", error);
+
+    // Check if it's a Prisma connection error
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P5010"
+    ) {
+      return NextResponse.json(
+        { error: "Database temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch chat session" },
       { status: 500 }
@@ -49,7 +65,7 @@ export async function GET(
 // DELETE /api/chat/sessions/[id] - Delete chat session
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -57,6 +73,8 @@ export async function DELETE(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const params = await context.params;
 
     const chatSession = await prisma.chatSession.findFirst({
       where: {
