@@ -22,10 +22,22 @@ interface DashboardStats {
   recentImagesList: Array<{
     id: string;
     prompt: string;
-    imageUrl: string;
     provider: string;
     createdAt: string;
+    // S3 storage fields
+    s3Url: string | null;
+    s3Key: string | null;
+    s3Bucket: string | null;
+    // Legacy storage fields
+    imageUrl: string | null;
+    imagePath: string | null;
   }>;
+}
+
+// Helper function to get the display URL for an image
+// Always use the API endpoint to ensure proper access control and S3 proxying
+function getImageDisplayUrl(image: { id: string }): string {
+  return `/api/images/${image.id}`;
 }
 
 export default function DashboardPage() {
@@ -278,7 +290,7 @@ export default function DashboardPage() {
                       onClick={() => router.push("/gallery")}
                     >
                       <Image
-                        src={image.imageUrl}
+                        src={getImageDisplayUrl(image)}
                         alt={image.prompt}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-200"

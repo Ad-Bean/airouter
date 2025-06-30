@@ -70,12 +70,17 @@ model GeneratedImage {
   id              String   @id @default(cuid())
   userId          String
   prompt          String   @db.Text
+  // S3 storage fields (primary)
+  s3Key           String?  // S3 object key
+  s3Url           String?  // Public S3 URL
+  s3Bucket        String?  // S3 bucket name
+  
+  // Legacy/fallback storage fields
   imageUrl        String?  // Legacy: stored image URL (for backwards compatibility)
   originalUrl     String?  // Original provider URL (temporary)
   storedPathname  String?  // For deletion from blob storage (legacy)
+  imagePath       String?  // File path relative to uploads directory (fallback)
   
-  // New fields for direct binary storage
-  imageData       Bytes?   // Binary image data stored directly in DB
   mimeType        String?  // MIME type (image/png, image/jpeg, image/svg+xml, etc.)
   filename        String?  // Original filename or generated name
   

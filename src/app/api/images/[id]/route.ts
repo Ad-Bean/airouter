@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const image = await prisma.generatedImage.findUnique({
       where: { id },
       select: {
-        imageData: true,
+        s3Url: true,
+        s3Key: true,
+        s3Bucket: true,
+        imagePath: true,
         mimeType: true,
         filename: true,
         imageUrl: true,
@@ -24,26 +28,95 @@ export async function GET(
       return NextResponse.json({ error: "Image not found" }, { status: 404 });
     }
 
-    // If we have binary data stored, serve it directly
-    if (image.imageData && image.mimeType) {
-      const headers = new Headers();
-      headers.set("Content-Type", image.mimeType);
-      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    // Priority 1: S3 URL (proxy through our API for proper auth)
+    if (image.s3Key && image.s3Bucket) {
+      try {
+        // Initialize S3 client with credentials
+        const s3Client = new S3Client({
+          region: process.env.AWS_REGION || "us-east-1",
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+          },
+        });
 
-      if (image.filename) {
-        headers.set(
-          "Content-Disposition",
-          `inline; filename="${image.filename}"`
-        );
+        const command = new GetObjectCommand({
+          Bucket: image.s3Bucket,
+          Key: image.s3Key,
+        });
+
+        const response = await s3Client.send(command);
+
+        if (response.Body) {
+          const headers = new Headers();
+          headers.set("Content-Type", image.mimeType || "image/png");
+          headers.set("Cache-Control", "public, max-age=31536000, immutable");
+
+          if (image.filename) {
+            headers.set(
+              "Content-Disposition",
+              `inline; filename="${image.filename}"`
+            );
+          }
+
+          // Convert the S3 response stream to buffer
+          const streamToBuffer = async (
+            stream: NodeJS.ReadableStream
+          ): Promise<Buffer> => {
+            const chunks: Uint8Array[] = [];
+            return new Promise((resolve, reject) => {
+              stream.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+              stream.on("error", reject);
+              stream.on("end", () => resolve(Buffer.concat(chunks)));
+            });
+          };
+
+          const imageBuffer = await streamToBuffer(
+            response.Body as NodeJS.ReadableStream
+          );
+
+          return new NextResponse(new Uint8Array(imageBuffer), {
+            status: 200,
+            headers,
+          });
+        }
+      } catch (s3Error) {
+        console.error("Error fetching from S3:", s3Error);
+        // Continue to fallback methods
       }
-
-      return new NextResponse(image.imageData, {
-        status: 200,
-        headers,
-      });
     }
 
-    // Fallback to legacy imageUrl if no binary data
+    // Priority 2: Local file system (fallback)
+    if (image.imagePath && image.mimeType) {
+      // Serve from local file system
+      try {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+        const filePath = path.join(process.cwd(), "public", image.imagePath);
+        const fileBuffer = await fs.readFile(filePath);
+
+        const headers = new Headers();
+        headers.set("Content-Type", image.mimeType);
+        headers.set("Cache-Control", "public, max-age=31536000, immutable");
+
+        if (image.filename) {
+          headers.set(
+            "Content-Disposition",
+            `inline; filename="${image.filename}"`
+          );
+        }
+
+        return new NextResponse(new Uint8Array(fileBuffer), {
+          status: 200,
+          headers,
+        });
+      } catch (fileError) {
+        console.error("Error reading local file:", fileError);
+        // Continue to next fallback
+      }
+    }
+
+    // Priority 3: Legacy imageUrl
     if (image.imageUrl) {
       return NextResponse.redirect(image.imageUrl);
     }

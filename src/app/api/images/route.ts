@@ -46,7 +46,16 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           prompt: true,
+          // S3 fields (primary)
+          s3Url: true,
+          s3Key: true,
+          s3Bucket: true,
+          // Legacy/fallback fields
           imageUrl: true,
+          imagePath: true,
+          // Metadata
+          mimeType: true,
+          filename: true,
           provider: true,
           model: true,
           width: true,

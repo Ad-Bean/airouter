@@ -16,12 +16,23 @@ import {
 import Image from "next/image";
 import { Navigation } from "@/components/Navigation";
 
+interface ProviderResult {
+  provider: string;
+  model: string | null;
+  images: string[];
+  displayUrls?: string[];
+  status: "pending" | "generating" | "completed" | "failed";
+  error?: string;
+  timestamp?: Date;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   type: "text" | "image";
   imageUrls?: string[];
+  providerResults?: ProviderResult[];
   timestamp: Date;
 }
 
@@ -90,6 +101,17 @@ export default function ChatPage() {
         if (isImageGenerationRequest()) {
           const providersToUse = providers || selectedProviders;
 
+          // Initialize provider results
+          const initialProviderResults: ProviderResult[] = providersToUse.map(
+            (provider) => ({
+              provider,
+              model: selectedModels[provider] || null,
+              images: [],
+              displayUrls: [],
+              status: "pending",
+            })
+          );
+
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
@@ -99,244 +121,188 @@ export default function ChatPage() {
                 : providersToUse[0]
             }: "${text}"`,
             type: "image",
+            providerResults: initialProviderResults,
             timestamp: new Date(),
           };
 
           setMessages((prev) => [...prev, assistantMessage]);
 
-          const generationPromises = providersToUse.map(async (provider) => {
+          // Update each provider's status to generating
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? {
+                    ...msg,
+                    providerResults: msg.providerResults?.map((result) => ({
+                      ...result,
+                      status: "generating" as const,
+                    })),
+                  }
+                : msg
+            )
+          );
+
+          // Generate images from each provider independently
+          providersToUse.forEach(async (provider, providerIndex) => {
             try {
               const result = await generateImage({
                 prompt: text,
                 provider,
-                model: selectedModels[provider], // Use selected model for this provider
+                model: selectedModels[provider],
                 width: 1024,
                 height: 1024,
                 steps: 20,
               });
 
               if (result.success && result.images && result.images.length > 0) {
-                return {
-                  provider,
-                  images: result.images,
-                  model: result.model,
-                  success: true,
-                };
+                // Process display URLs
+                const displayUrls = result.images.map((imageData) => {
+                  if (imageData.startsWith("data:")) {
+                    return imageData;
+                  } else {
+                    return `data:image/png;base64,${imageData}`;
+                  }
+                });
+
+                // Update this specific provider's result
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessage.id
+                      ? {
+                          ...msg,
+                          providerResults: msg.providerResults?.map(
+                            (providerResult, index) =>
+                              index === providerIndex
+                                ? {
+                                    ...providerResult,
+                                    images: result.images || [],
+                                    displayUrls,
+                                    status: "completed" as const,
+                                    timestamp: new Date(),
+                                  }
+                                : providerResult
+                          ),
+                        }
+                      : msg
+                  )
+                );
+
+                // Save images to database if user is authenticated
+                if (session?.user && "id" in session.user && session.user.id) {
+                  result.images?.forEach(async (imageData, imageIndex) => {
+                    try {
+                      const saveResponse = await fetch("/api/images/save", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        credentials: "include",
+                        body: JSON.stringify({
+                          prompt: text,
+                          imageData: imageData,
+                          provider,
+                          model: result.model,
+                          width: 1024,
+                          height: 1024,
+                          steps: 20,
+                        }),
+                      });
+
+                      if (saveResponse.ok) {
+                        const saveData = await saveResponse.json();
+                        console.log(
+                          `Image from ${provider} saved successfully`
+                        );
+
+                        // Update display URL with saved image URL
+                        setMessages((prev) =>
+                          prev.map((msg) =>
+                            msg.id === assistantMessage.id
+                              ? {
+                                  ...msg,
+                                  providerResults: msg.providerResults?.map(
+                                    (providerResult, index) =>
+                                      index === providerIndex
+                                        ? {
+                                            ...providerResult,
+                                            displayUrls:
+                                              providerResult.displayUrls?.map(
+                                                (url, urlIndex) =>
+                                                  urlIndex === imageIndex &&
+                                                  saveData.image?.displayUrl
+                                                    ? saveData.image.displayUrl
+                                                    : url
+                                              ),
+                                          }
+                                        : providerResult
+                                  ),
+                                }
+                              : msg
+                          )
+                        );
+                      } else {
+                        console.error(`Failed to save image from ${provider}`);
+                      }
+                    } catch (saveError) {
+                      console.error(
+                        `Error saving image from ${provider}:`,
+                        saveError
+                      );
+                    }
+                  });
+                }
               } else {
-                return {
-                  provider,
-                  images: [],
-                  model: result.model,
-                  success: false,
-                  error: "No images generated",
-                };
+                // Mark as failed
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessage.id
+                      ? {
+                          ...msg,
+                          providerResults: msg.providerResults?.map(
+                            (providerResult, index) =>
+                              index === providerIndex
+                                ? {
+                                    ...providerResult,
+                                    status: "failed" as const,
+                                    error: "No images generated",
+                                    timestamp: new Date(),
+                                  }
+                                : providerResult
+                          ),
+                        }
+                      : msg
+                  )
+                );
               }
             } catch (providerError) {
               console.warn(`Provider ${provider} failed:`, providerError);
-              return {
-                provider,
-                images: [],
-                model: null,
-                success: false,
-                error:
-                  providerError instanceof Error
-                    ? providerError.message
-                    : "Unknown error",
-              };
-            }
-          });
 
-          // Wait for all providers to complete (or fail)
-          const results = await Promise.allSettled(generationPromises);
-
-          // Collect all successful images
-          const successfulResults: Array<{
-            provider: string;
-            images: string[];
-            model: string | null;
-          }> = [];
-
-          // Collect all successful images for display
-          const allGeneratedImages: string[] = [];
-          const imageDisplayUrls: string[] = [];
-
-          results.forEach((result) => {
-            if (result.status === "fulfilled" && result.value.success) {
-              result.value.images.forEach((imageData) => {
-                allGeneratedImages.push(imageData);
-                // For display, use the original data URL or convert base64 to data URL
-                if (imageData.startsWith("data:")) {
-                  imageDisplayUrls.push(imageData);
-                } else {
-                  // If it's raw base64, convert to data URL for display
-                  imageDisplayUrls.push(`data:image/png;base64,${imageData}`);
-                }
-              });
-
-              successfulResults.push({
-                provider: result.value.provider,
-                images: result.value.images,
-                model: result.value.model,
-              });
-            }
-          });
-
-          // Save images to database if user is authenticated
-          if (
-            session?.user &&
-            "id" in session.user &&
-            session.user.id &&
-            successfulResults.length > 0
-          ) {
-            const allSavePromises: Promise<{
-              success: boolean;
-              displayUrl?: string;
-              originalIndex?: number;
-              error?: unknown;
-            }>[] = [];
-
-            let imageIndex = 0;
-            successfulResults.forEach((providerResult) => {
-              providerResult.images.forEach((imageData) => {
-                const currentIndex = imageIndex++;
-
-                const savePromise = (async () => {
-                  try {
-                    // Add a small delay between saves to reduce database pressure
-                    const delay = currentIndex * 100;
-                    if (delay > 0) {
-                      await new Promise((resolve) =>
-                        setTimeout(resolve, delay)
-                      );
-                    }
-
-                    const saveResponse = await fetch("/api/images/save", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      credentials: "include",
-                      body: JSON.stringify({
-                        prompt: text,
-                        imageData: imageData, // Send base64 data directly
-                        provider: providerResult.provider,
-                        model: providerResult.model,
-                        width: 1024,
-                        height: 1024,
-                        steps: 20,
-                      }),
-                    });
-
-                    if (!saveResponse.ok) {
-                      const errorData = await saveResponse.text();
-                      console.error(
-                        `Failed to save image from ${providerResult.provider}:`,
-                        saveResponse.status,
-                        errorData
-                      );
-                      return {
-                        success: false,
-                        error: errorData,
-                        originalIndex: currentIndex,
-                      };
-                    } else {
-                      const saveData = await saveResponse.json();
-                      console.log(
-                        `Image from ${providerResult.provider} saved successfully`
-                      );
-                      return {
-                        success: true,
-                        displayUrl: saveData.image?.displayUrl,
-                        originalIndex: currentIndex,
-                      };
-                    }
-                  } catch (saveError) {
-                    console.error(
-                      `Error saving image from ${providerResult.provider}:`,
-                      saveError
-                    );
-                    return {
-                      success: false,
-                      error: saveError,
-                      originalIndex: currentIndex,
-                    };
-                  }
-                })();
-
-                allSavePromises.push(savePromise);
-              });
-            });
-
-            // Wait for all saves to complete and update display URLs
-            Promise.allSettled(allSavePromises).then((saveResults) => {
-              const successful = saveResults.filter(
-                (r) => r.status === "fulfilled" && r.value.success
-              ).length;
-              const failed = saveResults.length - successful;
-
-              // Update display URLs for successfully saved images
-              const updatedDisplayUrls = [...imageDisplayUrls];
-              saveResults.forEach((result) => {
-                if (
-                  result.status === "fulfilled" &&
-                  result.value.success &&
-                  result.value.displayUrl &&
-                  typeof result.value.originalIndex === "number"
-                ) {
-                  updatedDisplayUrls[result.value.originalIndex] =
-                    result.value.displayUrl;
-                }
-              });
-
-              // Update the assistant message with the final URLs
+              // Mark as failed
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessage.id
                     ? {
                         ...msg,
-                        imageUrls: updatedDisplayUrls,
+                        providerResults: msg.providerResults?.map(
+                          (providerResult, index) =>
+                            index === providerIndex
+                              ? {
+                                  ...providerResult,
+                                  status: "failed" as const,
+                                  error:
+                                    providerError instanceof Error
+                                      ? providerError.message
+                                      : "Unknown error",
+                                  timestamp: new Date(),
+                                }
+                              : providerResult
+                        ),
                       }
                     : msg
                 )
               );
-
-              if (failed > 0) {
-                console.warn(
-                  `${failed} out of ${saveResults.length} images failed to save`
-                );
-              } else {
-                console.log(`All ${successful} images saved successfully`);
-              }
-            });
-          } else if (allGeneratedImages.length === 0) {
-            console.warn("No images were generated from any provider");
-          } else {
-            console.warn("User not authenticated, skipping image save");
-          }
-
-          // Update the assistant message with generated images (initial display)
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessage.id
-                ? {
-                    ...msg,
-                    imageUrls: imageDisplayUrls,
-                    content:
-                      imageDisplayUrls.length > 0
-                        ? `Here are your generated images for: "${text}". Generated using ${successfulResults
-                            .map(
-                              (r) =>
-                                r.provider.charAt(0).toUpperCase() +
-                                r.provider.slice(1)
-                            )
-                            .join(
-                              ", "
-                            )}. All images are automatically saved to your gallery.`
-                        : "Sorry, I couldn't generate any images. Please try again.",
-                  }
-                : msg
-            )
-          );
+            }
+          });
         } else {
           // Regular text response (you can integrate with OpenAI's chat API here)
           const assistantMessage: Message = {
@@ -529,31 +495,194 @@ export default function ChatPage() {
                     }`}
                   >
                     <p className="text-sm">{message.content}</p>
-                    {message.imageUrls && message.imageUrls.length > 0 && (
-                      <div className="mt-2 space-y-2">
-                        {message.imageUrls.map((url, index) => {
-                          // Check if it's a data URL or needs unoptimized loading
-                          const isDataUrl = url.startsWith("data:");
-                          const isExternalUrl =
-                            url.startsWith("http") &&
-                            !url.includes("localhost");
-                          const needsUnoptimized = isDataUrl || isExternalUrl;
 
-                          return (
-                            <Image
-                              key={index}
-                              src={url}
-                              alt={`Generated image ${index + 1}`}
-                              width={512}
-                              height={512}
-                              className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600"
-                              unoptimized={needsUnoptimized}
-                              priority={index === 0} // Prioritize first image
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
+                    {/* Provider Results Gallery */}
+                    {message.providerResults &&
+                      message.providerResults.length > 0 && (
+                        <div className="mt-4 space-y-4">
+                          {message.providerResults.map(
+                            (providerResult, providerIndex) => (
+                              <div
+                                key={`${providerResult.provider}-${providerIndex}`}
+                                className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
+                              >
+                                {/* Provider Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                                      <span className="text-xs font-bold text-white">
+                                        {providerResult.provider
+                                          .charAt(0)
+                                          .toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-sm text-gray-900 dark:text-white">
+                                        {providerResult.provider
+                                          .charAt(0)
+                                          .toUpperCase() +
+                                          providerResult.provider.slice(1)}
+                                        {providerResult.provider === "openai" &&
+                                          " (DALL-E)"}
+                                        {providerResult.provider ===
+                                          "stability" && " (SDXL)"}
+                                        {providerResult.provider === "google" &&
+                                          " (Imagen)"}
+                                      </div>
+                                      {providerResult.model && (
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                          {providerResult.model}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Status Indicator */}
+                                  <div className="flex items-center gap-2">
+                                    {providerResult.status === "pending" && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                        <span className="text-xs text-gray-500">
+                                          Pending
+                                        </span>
+                                      </div>
+                                    )}
+                                    {providerResult.status === "generating" && (
+                                      <div className="flex items-center gap-1">
+                                        <Loader className="w-3 h-3 animate-spin text-blue-500" />
+                                        <span className="text-xs text-blue-500">
+                                          Generating...
+                                        </span>
+                                      </div>
+                                    )}
+                                    {providerResult.status === "completed" && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                        <span className="text-xs text-green-600 dark:text-green-400">
+                                          Completed
+                                        </span>
+                                        {providerResult.timestamp && (
+                                          <span className="text-xs text-gray-400">
+                                            {providerResult.timestamp.toLocaleTimeString()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {providerResult.status === "failed" && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                        <span className="text-xs text-red-500">
+                                          Failed
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Images Grid */}
+                                {providerResult.displayUrls &&
+                                  providerResult.displayUrls.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {providerResult.displayUrls.map(
+                                        (url, imageIndex) => {
+                                          const isDataUrl =
+                                            url.startsWith("data:");
+                                          const isExternalUrl =
+                                            url.startsWith("http") &&
+                                            !url.includes("localhost");
+                                          const needsUnoptimized =
+                                            isDataUrl || isExternalUrl;
+
+                                          return (
+                                            <div
+                                              key={imageIndex}
+                                              className="relative group"
+                                            >
+                                              <Image
+                                                src={url}
+                                                alt={`Generated by ${
+                                                  providerResult.provider
+                                                } - Image ${imageIndex + 1}`}
+                                                width={256}
+                                                height={256}
+                                                className="w-full aspect-square object-cover rounded-lg border border-gray-200 dark:border-gray-600 transition-transform hover:scale-105"
+                                                unoptimized={needsUnoptimized}
+                                                priority={imageIndex === 0}
+                                              />
+
+                                              {/* Image overlay with download/view options */}
+                                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <button
+                                                  onClick={() =>
+                                                    window.open(url, "_blank")
+                                                  }
+                                                  className="bg-white/90 hover:bg-white text-gray-800 px-2 py-1 rounded text-xs font-medium transition-colors"
+                                                >
+                                                  View Full
+                                                </button>
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+                                      )}
+                                    </div>
+                                  )}
+
+                                {/* Error Message */}
+                                {providerResult.status === "failed" &&
+                                  providerResult.error && (
+                                    <div className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800">
+                                      Error: {providerResult.error}
+                                    </div>
+                                  )}
+
+                                {/* Loading placeholder for generating status */}
+                                {providerResult.status === "generating" && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {[1, 2].map((i) => (
+                                      <div
+                                        key={i}
+                                        className="w-full aspect-square bg-gray-200 dark:bg-gray-600 rounded-lg animate-pulse flex items-center justify-center"
+                                      >
+                                        <Loader className="w-8 h-8 text-gray-400 animate-spin" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                    {/* Legacy imageUrls support (for backward compatibility) */}
+                    {message.imageUrls &&
+                      message.imageUrls.length > 0 &&
+                      !message.providerResults && (
+                        <div className="mt-2 space-y-2">
+                          {message.imageUrls.map((url, index) => {
+                            const isDataUrl = url.startsWith("data:");
+                            const isExternalUrl =
+                              url.startsWith("http") &&
+                              !url.includes("localhost");
+                            const needsUnoptimized = isDataUrl || isExternalUrl;
+
+                            return (
+                              <Image
+                                key={index}
+                                src={url}
+                                alt={`Generated image ${index + 1}`}
+                                width={512}
+                                height={512}
+                                className="max-w-full rounded-lg border border-gray-200 dark:border-gray-600"
+                                unoptimized={needsUnoptimized}
+                                priority={index === 0}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+
                     <p className="text-xs opacity-70 mt-1">
                       {message.timestamp.toLocaleTimeString()}
                     </p>
@@ -572,7 +701,7 @@ export default function ChatPage() {
                     <div className="flex items-center space-x-2">
                       <Loader className="w-4 h-4 animate-spin text-gray-500" />
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        Generating images with{" "}
+                        Setting up generation with{" "}
                         {selectedProviders.length > 1
                           ? `${selectedProviders.length} AI models`
                           : selectedProviders

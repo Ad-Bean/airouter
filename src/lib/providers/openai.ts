@@ -91,11 +91,7 @@ export async function generateWithOpenAI(
       requestParams.n = Math.min(n, 10); // DALL-E 2 supports up to 10 images
     }
 
-    console.log("OpenAI request params:", requestParams);
-
     const response = await openai.images.generate(requestParams);
-
-    console.log("OpenAI response:", response);
 
     const images = (response.data || [])
       .map((item: { b64_json?: string | null }) => item.b64_json)

@@ -53,9 +53,15 @@ export async function GET() {
       select: {
         id: true,
         prompt: true,
-        imageUrl: true,
         provider: true,
         createdAt: true,
+        // S3 storage fields
+        s3Url: true,
+        s3Key: true,
+        s3Bucket: true,
+        // Legacy storage fields
+        imageUrl: true,
+        imagePath: true,
       },
       orderBy: { createdAt: "desc" },
       take: 6,

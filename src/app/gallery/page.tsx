@@ -18,8 +18,15 @@ import {
 interface GeneratedImage {
   id: string;
   prompt: string;
+  // S3 storage fields
+  s3Url: string | null;
+  s3Key: string | null;
+  s3Bucket: string | null;
+  // Legacy storage fields
   imageUrl: string | null;
-  imageData: Buffer | null;
+  imagePath: string | null;
+  imageData: string | null;
+  // Metadata
   mimeType: string | null;
   filename: string | null;
   provider: string;
@@ -33,13 +40,9 @@ interface GeneratedImage {
 }
 
 // Helper function to get the display URL for an image
+// Always use the API endpoint to ensure proper access control and S3 proxying
 function getImageDisplayUrl(image: GeneratedImage): string {
-  // If we have binary data stored, use our serving endpoint
-  if (image.imageData || (image.mimeType && !image.imageUrl)) {
-    return `/api/images/${image.id}`;
-  }
-  // Otherwise use the legacy URL
-  return image.imageUrl || "";
+  return `/api/images/${image.id}`;
 }
 
 interface PaginationInfo {
