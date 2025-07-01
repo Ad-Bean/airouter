@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { generateImage, type Provider, providerModels } from "@/lib/api";
 import {
@@ -40,6 +40,7 @@ interface Message {
 export default function ChatPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -65,6 +66,7 @@ export default function ChatPage() {
     return false;
   });
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -205,30 +207,32 @@ export default function ChatPage() {
         setCurrentSessionId(sessionId);
       } else if (response.status === 503) {
         console.error("Database temporarily unavailable");
-        // Show user-friendly message
-        alert(
+        setErrorMessage(
           "Database is temporarily unavailable. Some chat history may not load properly."
         );
+        // Clear error after 5 seconds
+        setTimeout(() => setErrorMessage(null), 5000);
       } else {
         console.error(
           "Failed to load session:",
           response.status,
           response.statusText
         );
+        setErrorMessage("Failed to load chat session. Please try again.");
+        setTimeout(() => setErrorMessage(null), 5000);
       }
     } catch (error) {
       console.error("Failed to load chat session:", error);
-      // Show user-friendly message for network errors
-      alert(
+      setErrorMessage(
         "Unable to load chat history. Please check your connection and try again."
       );
+      setTimeout(() => setErrorMessage(null), 5000);
     }
   }, []);
 
   // Load chat session from URL parameter
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get("session");
+    const sessionId = searchParams.get("session");
     if (sessionId && sessionId !== currentSessionId) {
       loadChatSession(sessionId);
     } else if (!sessionId && currentSessionId) {
@@ -236,7 +240,7 @@ export default function ChatPage() {
       setMessages([]);
       setCurrentSessionId(null);
     }
-  }, [currentSessionId, loadChatSession]);
+  }, [searchParams, currentSessionId, loadChatSession]);
 
   // Listen for URL changes (for browser back/forward buttons)
   useEffect(() => {
@@ -753,8 +757,6 @@ export default function ChatPage() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Background pattern */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-gray-800/30 dark:to-gray-900/30"></div>
         <div className="relative z-10 flex flex-col h-screen">
           <Navigation
             isDark={isDark}
@@ -765,6 +767,26 @@ export default function ChatPage() {
           />
 
           <div className="flex-1 flex flex-col min-h-0">
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="mx-2 mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                    <X className="w-2 h-2 text-white" />
+                  </div>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {errorMessage}
+                  </p>
+                  <button
+                    onClick={() => setErrorMessage(null)}
+                    className="ml-auto text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {messages.length === 0 && (

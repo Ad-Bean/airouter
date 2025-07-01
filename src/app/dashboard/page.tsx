@@ -114,10 +114,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-      {/* Background pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-gray-800/30 dark:to-gray-900/30"></div>
-
-      <div className="relative z-10">
+      <div>
         <Navigation
           isDark={isDark}
           mounted={mounted}

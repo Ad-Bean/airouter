@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, ensureDbConnection } from "@/lib/prisma";
 import { uploadImageToS3 } from "@/lib/s3";
 
 export async function POST(request: NextRequest) {
   try {
+    // Check database connection first
+    const dbHealthy = await ensureDbConnection();
+    if (!dbHealthy) {
+      console.error("Database connection failed - returning 503");
+      return NextResponse.json(
+        { error: "Database temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
     const requestData = await request.json();
     const session = await getServerSession(authOptions);
 
