@@ -132,34 +132,108 @@ export default function ChatPage() {
               "Processing message:",
               msg.id,
               "providerData:",
-              msg.providerData
-            );
+              msg.providerData,
+              "imageUrls:",
+              msg.imageUrls
+            ); // Helper function to convert URLs to proper API endpoints
+            const convertToDisplayUrl = (url: string): string => {
+              if (!url) return url;
+
+              // If it's already a data URL, keep it
+              if (url.startsWith("data:")) return url;
+
+              // If it's already an API endpoint, keep it
+              if (url.startsWith("/api/images/")) return url;
+
+              // If it's an HTTP URL, keep it
+              if (url.startsWith("http")) return url;
+
+              // If it looks like an image ID (alphanumeric string), convert to API endpoint
+              if (/^[a-zA-Z0-9_-]+$/.test(url) && url.length > 10) {
+                console.log(`Converting image ID ${url} to API endpoint`);
+                return `/api/images/${url}`;
+              }
+
+              // For any other URL, keep as is
+              return url;
+            };
+
+            // Convert imageUrls to proper display URLs
+            const processedImageUrls = msg.imageUrls
+              ? msg.imageUrls.map(convertToDisplayUrl)
+              : [];
+            console.log("Original imageUrls:", msg.imageUrls);
+            console.log("Processed imageUrls:", processedImageUrls);
 
             if (msg.providerData) {
               if (Array.isArray(msg.providerData)) {
                 providerResults = (msg.providerData as ProviderResult[]).map(
-                  (result: ProviderResult) => ({
-                    provider: result.provider || "",
-                    model: result.model || null,
-                    images: result.images || [],
-                    displayUrls: result.displayUrls || result.images || [],
-                    status: result.status || "completed",
-                    error: result.error,
-                    timestamp: result.timestamp
-                      ? new Date(result.timestamp)
-                      : undefined,
-                  })
+                  (result: ProviderResult, index: number) => {
+                    // Try to get images from the result, or distribute from imageUrls
+                    let images = result.images || [];
+                    let displayUrls = result.displayUrls || result.images || [];
+
+                    // Convert all URLs to proper display URLs
+                    images = images.map(convertToDisplayUrl);
+                    displayUrls = displayUrls.map(convertToDisplayUrl);
+
+                    // If no images in provider data, try to use imageUrls as fallback
+                    if (
+                      (!images || images.length === 0) &&
+                      processedImageUrls &&
+                      processedImageUrls.length > 0
+                    ) {
+                      // For multiple providers, try to distribute images evenly
+                      const imagesPerProvider = Math.ceil(
+                        processedImageUrls.length /
+                          (msg.providerData as ProviderResult[]).length
+                      );
+                      const startIndex = index * imagesPerProvider;
+                      const endIndex = Math.min(
+                        startIndex + imagesPerProvider,
+                        processedImageUrls.length
+                      );
+                      const providerImages = processedImageUrls.slice(
+                        startIndex,
+                        endIndex
+                      );
+                      images = providerImages;
+                      displayUrls = providerImages;
+                    }
+
+                    return {
+                      provider: result.provider || "",
+                      model: result.model || null,
+                      images,
+                      displayUrls,
+                      status: result.status || "completed",
+                      error: result.error,
+                      timestamp: result.timestamp
+                        ? new Date(result.timestamp)
+                        : undefined,
+                    };
+                  }
                 );
               } else if (typeof msg.providerData === "object") {
                 // Handle single provider result or different format
                 const singleResult = msg.providerData as ProviderResult;
+                let images = singleResult.images || processedImageUrls || [];
+                let displayUrls =
+                  singleResult.displayUrls ||
+                  singleResult.images ||
+                  processedImageUrls ||
+                  [];
+
+                // Convert all URLs to proper display URLs
+                images = images.map(convertToDisplayUrl);
+                displayUrls = displayUrls.map(convertToDisplayUrl);
+
                 providerResults = [
                   {
                     provider: singleResult.provider || "",
                     model: singleResult.model || null,
-                    images: singleResult.images || [],
-                    displayUrls:
-                      singleResult.displayUrls || singleResult.images || [],
+                    images,
+                    displayUrls,
                     status: singleResult.status || "completed",
                     error: singleResult.error,
                     timestamp: singleResult.timestamp
@@ -171,13 +245,17 @@ export default function ChatPage() {
             }
 
             // If no provider results but we have imageUrls, create fallback provider results
-            if (!providerResults && msg.imageUrls && msg.imageUrls.length > 0) {
+            if (
+              !providerResults &&
+              processedImageUrls &&
+              processedImageUrls.length > 0
+            ) {
               providerResults = [
                 {
                   provider: "unknown",
                   model: null,
-                  images: msg.imageUrls,
-                  displayUrls: msg.imageUrls,
+                  images: processedImageUrls,
+                  displayUrls: processedImageUrls,
                   status: "completed" as const,
                   timestamp: new Date(msg.createdAt),
                 },
@@ -188,7 +266,9 @@ export default function ChatPage() {
               "Processed provider results for message",
               msg.id,
               ":",
-              providerResults
+              providerResults,
+              "processed imageUrls:",
+              processedImageUrls
             );
 
             return {
@@ -196,7 +276,7 @@ export default function ChatPage() {
               role: msg.role as "user" | "assistant",
               content: msg.content,
               type: msg.type as "text" | "image",
-              imageUrls: msg.imageUrls,
+              imageUrls: processedImageUrls,
               providerResults,
               timestamp: new Date(msg.createdAt),
             };
@@ -269,6 +349,59 @@ export default function ChatPage() {
           "with providerResults:",
           message.providerResults
         );
+
+        // Extract all image URLs from provider results for storage
+        const allImageUrls: string[] = [];
+        if (message.providerResults) {
+          message.providerResults.forEach((result) => {
+            if (result.displayUrls) {
+              // Extract image IDs from API endpoints and store those
+              const imageIds = result.displayUrls
+                .filter((url) => url && url.startsWith("/api/images/"))
+                .map((url) => {
+                  const match = url.match(/\/api\/images\/(.+)$/);
+                  if (match) {
+                    console.log(
+                      `Extracting image ID ${match[1]} from URL ${url}`
+                    );
+                    return match[1]; // Store just the ID
+                  }
+                  return url; // Fallback to full URL
+                })
+                .filter(Boolean);
+
+              if (imageIds.length > 0) {
+                allImageUrls.push(...imageIds);
+              } else {
+                // Fallback: filter out base64 URLs but keep others
+                const nonBase64Urls = result.displayUrls.filter(
+                  (url) => url && !url.startsWith("data:")
+                );
+                allImageUrls.push(...nonBase64Urls);
+              }
+            }
+          });
+        }
+
+        // If we have explicit imageUrls, include them too (but prefer image IDs)
+        if (message.imageUrls) {
+          const messageUrls = message.imageUrls
+            .filter((url) => url && !url.startsWith("data:")) // Filter out base64
+            .map((url) => {
+              // If it's an API endpoint, extract the ID
+              if (url.startsWith("/api/images/")) {
+                const match = url.match(/\/api\/images\/(.+)$/);
+                return match ? match[1] : url;
+              }
+              return url;
+            });
+
+          // Only add if we don't already have URLs from provider results
+          if (allImageUrls.length === 0) {
+            allImageUrls.push(...messageUrls);
+          }
+        }
+
         const response = await fetch("/api/chat/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -277,7 +410,7 @@ export default function ChatPage() {
             role: message.role,
             content: message.content,
             type: message.type,
-            imageUrls: message.imageUrls,
+            imageUrls: allImageUrls, // Use extracted image URLs
             providerData: message.providerResults,
           }),
         });
@@ -406,6 +539,11 @@ export default function ChatPage() {
                   result.images &&
                   result.images.length > 0
                 ) {
+                  console.log(
+                    `${provider} generated ${result.images.length} images:`,
+                    result.images.map((img) => img.substring(0, 50) + "...")
+                  );
+
                   // Process display URLs
                   const displayUrls = result.images.map((imageData) => {
                     if (imageData.startsWith("data:")) {
@@ -414,6 +552,11 @@ export default function ChatPage() {
                       return `data:image/png;base64,${imageData}`;
                     }
                   });
+
+                  console.log(
+                    `${provider} display URLs processed:`,
+                    displayUrls.map((url) => url.substring(0, 50) + "...")
+                  );
 
                   // Update this specific provider's result
                   setMessages((prev) => {
@@ -437,6 +580,11 @@ export default function ChatPage() {
                         : msg
                     );
 
+                    console.log(
+                      `${provider} updated messages:`,
+                      updatedMessages.find((m) => m.id === assistantMessage.id)
+                        ?.providerResults?.[providerIndex]
+                    );
                     return updatedMessages;
                   });
 
@@ -469,7 +617,11 @@ export default function ChatPage() {
                           if (saveResponse.ok) {
                             const saveData = await saveResponse.json();
                             console.log(
-                              `Image from ${provider} saved successfully`
+                              `Image from ${provider} saved successfully:`,
+                              saveData
+                            );
+                            console.log(
+                              `Returned displayUrl: ${saveData.image?.displayUrl}`
                             );
 
                             // Update display URL with saved image URL
@@ -485,12 +637,21 @@ export default function ChatPage() {
                                                 ...providerResult,
                                                 displayUrls:
                                                   providerResult.displayUrls?.map(
-                                                    (url, urlIndex) =>
-                                                      urlIndex === imageIndex &&
-                                                      saveData.image?.displayUrl
-                                                        ? saveData.image
-                                                            .displayUrl
-                                                        : url
+                                                    (url, urlIndex) => {
+                                                      if (
+                                                        urlIndex ===
+                                                          imageIndex &&
+                                                        saveData.image
+                                                          ?.displayUrl
+                                                      ) {
+                                                        console.log(
+                                                          `Updating URL from ${url} to ${saveData.image.displayUrl}`
+                                                        );
+                                                        return saveData.image
+                                                          .displayUrl;
+                                                      }
+                                                      return url;
+                                                    }
                                                   ),
                                               }
                                             : providerResult
@@ -499,6 +660,41 @@ export default function ChatPage() {
                                   : msg
                               )
                             );
+
+                            // Immediately save the assistant message with the updated URL
+                            setMessages((prev) => {
+                              const updatedAssistantMessage = prev.find(
+                                (m) => m.id === assistantMessage.id
+                              );
+                              if (updatedAssistantMessage) {
+                                // Extract current image URLs from provider results
+                                const currentImageUrls: string[] = [];
+                                if (updatedAssistantMessage.providerResults) {
+                                  updatedAssistantMessage.providerResults.forEach(
+                                    (result) => {
+                                      if (result.displayUrls) {
+                                        currentImageUrls.push(
+                                          ...result.displayUrls
+                                        );
+                                      }
+                                    }
+                                  );
+                                }
+
+                                // Create message with current URLs and save immediately
+                                const messageToSave = {
+                                  ...updatedAssistantMessage,
+                                  imageUrls: currentImageUrls,
+                                };
+
+                                console.log(
+                                  `Saving assistant message immediately after ${provider} image save:`,
+                                  messageToSave
+                                );
+                                saveMessage(messageToSave).catch(console.error);
+                              }
+                              return prev;
+                            });
                           } else {
                             const errorText = await saveResponse.text();
                             console.error(
@@ -594,22 +790,11 @@ export default function ChatPage() {
             }
           );
 
-          // Wait for all providers to complete and then save the final assistant message
+          // Wait for all providers to complete - no need to save again since we save incrementally
           Promise.allSettled(providerPromises).then(() => {
-            // Get the final state of the assistant message and save it
-            setMessages((prev) => {
-              const finalAssistantMessage = prev.find(
-                (m) => m.id === assistantMessage.id
-              );
-              if (finalAssistantMessage) {
-                console.log(
-                  "Saving final assistant message with all provider results:",
-                  finalAssistantMessage
-                );
-                saveMessage(finalAssistantMessage).catch(console.error);
-              }
-              return prev;
-            });
+            console.log(
+              "All provider promises completed - images should already be saved incrementally"
+            );
           });
         } else {
           // Regular text response (you can integrate with OpenAI's chat API here)

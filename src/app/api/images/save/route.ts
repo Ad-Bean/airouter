@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { prisma, ensureDbConnection } from "@/lib/prisma";
+import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import { uploadImageToS3 } from "@/lib/s3";
 
 export async function POST(request: NextRequest) {
   try {
-    // Check database connection first
-    const dbHealthy = await ensureDbConnection();
-    if (!dbHealthy) {
-      console.error("Database connection failed - returning 503");
-      return NextResponse.json(
-        { error: "Database temporarily unavailable. Please try again later." },
-        { status: 503 }
-      );
-    }
-
     const requestData = await request.json();
     const session = await getServerSession(authOptions);
 
@@ -23,19 +13,23 @@ export async function POST(request: NextRequest) {
     let userId = session?.user?.id;
 
     if (!userId) {
-      // Create or get test user for development
-      let testUser = await prisma.user.findFirst({
-        where: { email: "test@example.com" },
-      });
-
-      if (!testUser) {
-        testUser = await prisma.user.create({
-          data: {
-            email: "test@example.com",
-            name: "Test User",
-          },
+      // Use retry wrapper for database operations
+      const testUser = await withDatabaseRetry(async () => {
+        let user = await prisma.user.findFirst({
+          where: { email: "test@example.com" },
         });
-      }
+
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              email: "test@example.com",
+              name: "Test User",
+            },
+          });
+        }
+
+        return user;
+      });
 
       userId = testUser.id;
     }
@@ -180,9 +174,11 @@ export async function POST(request: NextRequest) {
       steps: steps || 20,
     });
 
-    // Verify user exists
-    const userExists = await prisma.user.findUnique({
-      where: { id: userId },
+    // Verify user exists with retry logic
+    const userExists = await withDatabaseRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { id: userId },
+      });
     });
 
     if (!userExists) {
@@ -190,22 +186,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Save to database
-    const savedImage = await prisma.generatedImage.create({
-      data: {
-        userId: userId,
-        prompt: prompt.trim(),
-        s3Key: s3Result.key,
-        s3Url: s3Result.url,
-        s3Bucket: s3Result.bucket,
-        mimeType: mimeType,
-        filename: filename,
-        provider,
-        model: model || null,
-        width: width || 1024,
-        height: height || 1024,
-        steps: steps || 20,
-      },
+    // Save to database with retry logic
+    const savedImage = await withDatabaseRetry(async () => {
+      return await prisma.generatedImage.create({
+        data: {
+          userId: userId,
+          prompt: prompt.trim(),
+          s3Key: s3Result.key,
+          s3Url: s3Result.url,
+          s3Bucket: s3Result.bucket,
+          mimeType: mimeType,
+          filename: filename,
+          provider,
+          model: model || null,
+          width: width || 1024,
+          height: height || 1024,
+          steps: steps || 20,
+        },
+      });
     });
 
     // Return success response
