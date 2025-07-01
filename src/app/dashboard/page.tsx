@@ -27,7 +27,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDark, setIsDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -39,7 +38,6 @@ export default function DashboardPage() {
   }, [session, status, router]);
 
   useEffect(() => {
-    setMounted(true);
     const savedTheme = localStorage.getItem("theme");
     const systemPrefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)"
@@ -98,7 +96,6 @@ export default function DashboardPage() {
       <div>
         <Navigation
           isDark={isDark}
-          mounted={mounted}
           onToggleTheme={toggleTheme}
           onShowLogin={handleShowLogin}
           onShowRegister={handleShowRegister}

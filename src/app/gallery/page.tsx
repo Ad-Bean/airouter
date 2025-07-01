@@ -53,7 +53,6 @@ export default function GalleryPage() {
   const [filter, setFilter] = useState<FilterOption>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDark, setIsDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -64,7 +63,6 @@ export default function GalleryPage() {
   }, [session, status, router]);
 
   useEffect(() => {
-    setMounted(true);
     const savedTheme = localStorage.getItem("theme");
     const systemPrefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)"
@@ -196,7 +194,6 @@ export default function GalleryPage() {
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
       <Navigation
         isDark={isDark}
-        mounted={mounted}
         onToggleTheme={toggleTheme}
         onShowLogin={() => router.push("/?showLogin=true")}
         onShowRegister={() => router.push("/?showRegister=true")}

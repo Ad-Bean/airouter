@@ -34,7 +34,6 @@ function ChatPageContent() {
   });
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     // Try to get initial state from localStorage, default to false on desktop, true on mobile
     if (typeof window !== "undefined") {
@@ -60,8 +59,6 @@ function ChatPageContent() {
   }, [session, status, router]);
 
   useEffect(() => {
-    setMounted(true);
-
     const savedTheme = localStorage.getItem("theme");
     const systemPrefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)"
@@ -927,7 +924,6 @@ function ChatPageContent() {
         <div className="relative z-10 flex flex-col h-screen">
           <Navigation
             isDark={isDark}
-            mounted={mounted}
             onToggleTheme={toggleTheme}
             onShowLogin={handleShowLogin}
             onShowRegister={handleShowRegister}

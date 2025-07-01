@@ -17,7 +17,6 @@ export default function Home() {
   const router = useRouter();
   const [isDark, setIsDark] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [mounted, setMounted] = useState(false);
   const [selectedProviders, setSelectedProviders] = useState<Provider[]>([
     "openai",
   ]);
@@ -27,8 +26,6 @@ export default function Home() {
   );
 
   useEffect(() => {
-    setMounted(true);
-
     const savedTheme = localStorage.getItem("theme");
     const systemPrefersDark = window.matchMedia(
       "(prefers-color-scheme: dark)"
@@ -157,7 +154,6 @@ export default function Home() {
       <div>
         <Navigation
           isDark={isDark}
-          mounted={mounted}
           onToggleTheme={toggleTheme}
           onShowLogin={handleShowLogin}
           onShowRegister={handleShowRegister}

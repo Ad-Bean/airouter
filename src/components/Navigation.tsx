@@ -8,7 +8,6 @@ import { useState } from "react";
 
 interface NavigationProps {
   isDark: boolean;
-  mounted: boolean;
   onToggleTheme: () => void;
   onShowLogin?: () => void;
   onShowRegister?: () => void;
@@ -16,7 +15,6 @@ interface NavigationProps {
 
 export function Navigation({
   isDark,
-  mounted,
   onToggleTheme,
   onShowLogin,
   onShowRegister,
@@ -60,12 +58,8 @@ export function Navigation({
             className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Toggle theme"
           >
-            {mounted ? (
-              isDark ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )
+            {isDark ? (
+              <Sun className="w-5 h-5" />
             ) : (
               <Moon className="w-5 h-5" />
             )}
@@ -152,12 +146,8 @@ export function Navigation({
             className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Toggle theme"
           >
-            {mounted ? (
-              isDark ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )
+            {isDark ? (
+              <Sun className="w-5 h-5" />
             ) : (
               <Moon className="w-5 h-5" />
             )}
