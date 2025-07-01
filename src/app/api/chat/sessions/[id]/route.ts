@@ -109,7 +109,7 @@ export async function DELETE(
 // PATCH /api/chat/sessions/[id] - Update chat session (e.g., title)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -118,6 +118,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const params = await context.params;
     const { title } = await request.json();
 
     const chatSession = await prisma.chatSession.findFirst({

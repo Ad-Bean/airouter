@@ -14,30 +14,7 @@ import {
   Search,
   ImageIcon,
 } from "lucide-react";
-
-interface GeneratedImage {
-  id: string;
-  prompt: string;
-  // S3 storage fields
-  s3Url: string | null;
-  s3Key: string | null;
-  s3Bucket: string | null;
-  // Legacy storage fields
-  imageUrl: string | null;
-  imagePath: string | null;
-  imageData: string | null;
-  // Metadata
-  mimeType: string | null;
-  filename: string | null;
-  provider: string;
-  model: string | null;
-  width: number;
-  height: number;
-  steps: number | null;
-  isFavorite: boolean;
-  isPublic: boolean;
-  createdAt: string;
-}
+import { GeneratedImage } from "@/types/dashboard";
 
 // Helper function to get the display URL for an image
 // Always use the API endpoint to ensure proper access control and S3 proxying

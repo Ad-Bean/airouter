@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -16,28 +17,9 @@ import {
 import Image from "next/image";
 import { Navigation } from "@/components/Navigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
+import { type Message, type ProviderResult } from "@/types/chat";
 
-interface ProviderResult {
-  provider: string;
-  model: string | null;
-  images: string[];
-  displayUrls?: string[];
-  status: "pending" | "generating" | "completed" | "failed";
-  error?: string;
-  timestamp?: Date;
-}
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  type: "text" | "image";
-  imageUrls?: string[];
-  providerResults?: ProviderResult[];
-  timestamp: Date;
-}
-
-export default function ChatPage() {
+function ChatPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1548,5 +1530,19 @@ export default function ChatPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        </div>
+      }
+    >
+      <ChatPageContent />
+    </Suspense>
   );
 }

@@ -13,26 +13,7 @@ import {
   Eye,
   Sparkles,
 } from "lucide-react";
-
-interface DashboardStats {
-  totalImages: number;
-  favoriteImages: number;
-  recentImages: number;
-  providerStats: Record<string, number>;
-  recentImagesList: Array<{
-    id: string;
-    prompt: string;
-    provider: string;
-    createdAt: string;
-    // S3 storage fields
-    s3Url: string | null;
-    s3Key: string | null;
-    s3Bucket: string | null;
-    // Legacy storage fields
-    imageUrl: string | null;
-    imagePath: string | null;
-  }>;
-}
+import { DashboardStats } from "@/types/dashboard";
 
 // Helper function to get the display URL for an image
 // Always use the API endpoint to ensure proper access control and S3 proxying
