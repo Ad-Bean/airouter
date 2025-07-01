@@ -397,10 +397,13 @@ function ChatPageContent() {
         if (response.ok) {
           const data = await response.json();
           console.log("Message saved successfully:", data);
-          if (!currentSessionId && data.sessionId) {
-            setCurrentSessionId(data.sessionId);
+          
+          // If we provided a sessionId explicitly, update our current session state
+          const effectiveSessionId = sessionId || data.sessionId;
+          if (!currentSessionId && effectiveSessionId) {
+            setCurrentSessionId(effectiveSessionId);
             // Update URL without reloading
-            window.history.pushState({}, "", `/chat?session=${data.sessionId}`);
+            window.history.pushState({}, "", `/chat?session=${effectiveSessionId}`);
           }
         } else {
           const errorText = await response.text();
@@ -425,7 +428,9 @@ function ChatPageContent() {
     setMessages([]);
     setCurrentSessionId(null);
     setInput("");
-    window.history.pushState({}, "", "/chat");
+    setErrorMessage(null);
+    // Navigate to /chat without session ID - this will trigger session creation on first message
+    router.push("/chat", { scroll: false });
   };
 
   // Handle sidebar toggle
@@ -437,10 +442,61 @@ function ChatPageContent() {
     }
   };
 
+  // Create a new session if needed
+  const ensureSession = useCallback(async (): Promise<string | null> => {
+    if (currentSessionId) {
+      return currentSessionId;
+    }
+
+    try {
+      // Create a new session using the proper API
+      const response = await fetch("/api/chat/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "New Chat", // Default title
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.session?.id) {
+          const newSessionId = data.session.id;
+          setCurrentSessionId(newSessionId);
+          // Update URL without reloading
+          router.push(`/chat?session=${newSessionId}`, { scroll: false });
+          return newSessionId;
+        }
+      } else {
+        console.error(
+          "Failed to create session:",
+          response.status,
+          await response.text()
+        );
+      }
+    } catch (error) {
+      console.error("Failed to create session:", error);
+    }
+
+    return null;
+  }, [currentSessionId, router]);
+
   const handleSendMessage = useCallback(
     async (messageText?: string, providers?: Provider[]) => {
       const text = messageText || input.trim();
       if (!text || isGenerating) return;
+
+      // Clear any previous error messages
+      setErrorMessage(null);
+
+      // Ensure we have a session before sending the message
+      const sessionId = await ensureSession();
+      if (!sessionId) {
+        setErrorMessage("Failed to create chat session. Please try again.");
+        // Clear error after 5 seconds
+        setTimeout(() => setErrorMessage(null), 5000);
+        return;
+      }
 
       const userMessage: Message = {
         id: Date.now().toString(),
@@ -454,8 +510,8 @@ function ChatPageContent() {
       setInput("");
       setIsGenerating(true);
 
-      // Save user message
-      await saveMessage(userMessage);
+      // Save user message with the ensured session ID
+      await saveMessage(userMessage, sessionId);
 
       try {
         if (isImageGenerationRequest()) {
@@ -670,7 +726,7 @@ function ChatPageContent() {
                                   `Saving assistant message immediately after ${provider} image save:`,
                                   messageToSave
                                 );
-                                saveMessage(messageToSave).catch(console.error);
+                                saveMessage(messageToSave, sessionId).catch(console.error);
                               }
                               return prev;
                             });
@@ -809,6 +865,7 @@ function ChatPageContent() {
       selectedModels,
       session,
       saveMessage,
+      ensureSession,
     ]
   );
 

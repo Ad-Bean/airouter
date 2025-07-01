@@ -17,3 +17,13 @@ export interface Message {
   providerResults?: ProviderResult[];
   timestamp: Date;
 }
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    messages: number;
+  };
+}

@@ -12,16 +12,7 @@ import {
   X,
   Menu,
 } from "lucide-react";
-
-interface ChatSession {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  _count: {
-    messages: number;
-  };
-}
+import { ChatSession } from "@/types/chat";
 
 interface ChatSidebarProps {
   currentSessionId?: string;
@@ -48,7 +39,6 @@ export function ChatSidebar({
     string | undefined
   >(currentSessionId);
 
-  // Sync selected session with current session prop
   useEffect(() => {
     setSelectedSessionId(currentSessionId);
   }, [currentSessionId]);
