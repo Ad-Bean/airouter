@@ -88,10 +88,6 @@ export function ChatSidebar({
   };
 
   const handleSessionClick = (sessionId: string) => {
-    console.log("Session clicked:", sessionId);
-    console.log("Current URL:", window.location.href);
-    console.log("Navigating to:", `/chat?session=${sessionId}`);
-
     // Immediately update local state for instant visual feedback
     setSelectedSessionId(sessionId);
 

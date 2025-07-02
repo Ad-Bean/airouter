@@ -18,6 +18,8 @@ import Image from "next/image";
 import { Navigation } from "@/components/Navigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { type Message, type ProviderResult } from "@/types/chat";
+import { useChatSessionLoader } from "@/hooks/useChatSessionLoader";
+import { useMessageSaver } from "@/hooks/useMessageSaver";
 
 function ChatPageContent() {
   const { data: session, status } = useSession();
@@ -30,18 +32,16 @@ function ChatPageContent() {
     "openai",
   ]);
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
-    google: "imagen-4.0-generate-preview-06-06", // Default to latest
+    google: "imagen-4.0-generate-preview-06-06",
   });
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Try to get initial state from localStorage, default to false on desktop, true on mobile
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("sidebarCollapsed");
       if (saved !== null) {
         return saved === "true";
       }
-      // Default to collapsed on mobile devices
       return window.innerWidth < 768;
     }
     return false;
@@ -69,7 +69,6 @@ function ChatPageContent() {
     setIsDark(shouldUseDark);
     document.documentElement.classList.toggle("dark", shouldUseDark);
 
-    // Handle responsive sidebar behavior
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setSidebarCollapsed(true);
@@ -86,208 +85,25 @@ function ChatPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load chat session
-  const loadChatSession = useCallback(async (sessionId: string) => {
-    try {
-      console.log("Loading chat session:", sessionId);
-      const response = await fetch(`/api/chat/sessions/${sessionId}`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Loaded session data:", data);
-        const chatMessages = data.session.messages.map(
-          (msg: {
-            id: string;
-            role: string;
-            content: string;
-            type: string;
-            imageUrls: string[];
-            providerData: unknown;
-            createdAt: string;
-          }) => {
-            // Process provider data properly
-            let providerResults: ProviderResult[] | undefined;
-
-            console.log(
-              "Processing message:",
-              msg.id,
-              "providerData:",
-              msg.providerData,
-              "imageUrls:",
-              msg.imageUrls
-            ); // Helper function to convert URLs to proper API endpoints
-            const convertToDisplayUrl = (url: string): string => {
-              if (!url) return url;
-
-              // If it's already a data URL, keep it
-              if (url.startsWith("data:")) return url;
-
-              // If it's already an API endpoint, keep it
-              if (url.startsWith("/api/images/")) return url;
-
-              // If it's an HTTP URL, keep it
-              if (url.startsWith("http")) return url;
-
-              // If it looks like an image ID (alphanumeric string), convert to API endpoint
-              if (/^[a-zA-Z0-9_-]+$/.test(url) && url.length > 10) {
-                console.log(`Converting image ID ${url} to API endpoint`);
-                return `/api/images/${url}`;
-              }
-
-              // For any other URL, keep as is
-              return url;
-            };
-
-            // Convert imageUrls to proper display URLs
-            const processedImageUrls = msg.imageUrls
-              ? msg.imageUrls.map(convertToDisplayUrl)
-              : [];
-            console.log("Original imageUrls:", msg.imageUrls);
-            console.log("Processed imageUrls:", processedImageUrls);
-
-            if (msg.providerData) {
-              if (Array.isArray(msg.providerData)) {
-                providerResults = (msg.providerData as ProviderResult[]).map(
-                  (result: ProviderResult, index: number) => {
-                    // Try to get images from the result, or distribute from imageUrls
-                    let images = result.images || [];
-                    let displayUrls = result.displayUrls || result.images || [];
-
-                    // Convert all URLs to proper display URLs
-                    images = images.map(convertToDisplayUrl);
-                    displayUrls = displayUrls.map(convertToDisplayUrl);
-
-                    // If no images in provider data, try to use imageUrls as fallback
-                    if (
-                      (!images || images.length === 0) &&
-                      processedImageUrls &&
-                      processedImageUrls.length > 0
-                    ) {
-                      // For multiple providers, try to distribute images evenly
-                      const imagesPerProvider = Math.ceil(
-                        processedImageUrls.length /
-                          (msg.providerData as ProviderResult[]).length
-                      );
-                      const startIndex = index * imagesPerProvider;
-                      const endIndex = Math.min(
-                        startIndex + imagesPerProvider,
-                        processedImageUrls.length
-                      );
-                      const providerImages = processedImageUrls.slice(
-                        startIndex,
-                        endIndex
-                      );
-                      images = providerImages;
-                      displayUrls = providerImages;
-                    }
-
-                    return {
-                      provider: result.provider || "",
-                      model: result.model || null,
-                      images,
-                      displayUrls,
-                      status: result.status || "completed",
-                      error: result.error,
-                      timestamp: result.timestamp
-                        ? new Date(result.timestamp)
-                        : undefined,
-                    };
-                  }
-                );
-              } else if (typeof msg.providerData === "object") {
-                // Handle single provider result or different format
-                const singleResult = msg.providerData as ProviderResult;
-                let images = singleResult.images || processedImageUrls || [];
-                let displayUrls =
-                  singleResult.displayUrls ||
-                  singleResult.images ||
-                  processedImageUrls ||
-                  [];
-
-                // Convert all URLs to proper display URLs
-                images = images.map(convertToDisplayUrl);
-                displayUrls = displayUrls.map(convertToDisplayUrl);
-
-                providerResults = [
-                  {
-                    provider: singleResult.provider || "",
-                    model: singleResult.model || null,
-                    images,
-                    displayUrls,
-                    status: singleResult.status || "completed",
-                    error: singleResult.error,
-                    timestamp: singleResult.timestamp
-                      ? new Date(singleResult.timestamp)
-                      : undefined,
-                  },
-                ];
-              }
-            }
-
-            // If no provider results but we have imageUrls, create fallback provider results
-            if (
-              !providerResults &&
-              processedImageUrls &&
-              processedImageUrls.length > 0
-            ) {
-              providerResults = [
-                {
-                  provider: "unknown",
-                  model: null,
-                  images: processedImageUrls,
-                  displayUrls: processedImageUrls,
-                  status: "completed" as const,
-                  timestamp: new Date(msg.createdAt),
-                },
-              ];
-            }
-
-            console.log(
-              "Processed provider results for message",
-              msg.id,
-              ":",
-              providerResults,
-              "processed imageUrls:",
-              processedImageUrls
-            );
-
-            return {
-              id: msg.id,
-              role: msg.role as "user" | "assistant",
-              content: msg.content,
-              type: msg.type as "text" | "image",
-              imageUrls: processedImageUrls,
-              providerResults,
-              timestamp: new Date(msg.createdAt),
-            };
-          }
-        );
-        console.log("Processed messages:", chatMessages);
-        setMessages(chatMessages);
-        setCurrentSessionId(sessionId);
-      } else if (response.status === 503) {
-        console.error("Database temporarily unavailable");
-        setErrorMessage(
-          "Database is temporarily unavailable. Some chat history may not load properly."
-        );
-        // Clear error after 5 seconds
-        setTimeout(() => setErrorMessage(null), 5000);
-      } else {
-        console.error(
-          "Failed to load session:",
-          response.status,
-          response.statusText
-        );
-        setErrorMessage("Failed to load chat session. Please try again.");
-        setTimeout(() => setErrorMessage(null), 5000);
-      }
-    } catch (error) {
-      console.error("Failed to load chat session:", error);
-      setErrorMessage(
-        "Unable to load chat history. Please check your connection and try again."
-      );
+  // Use chat session loader hook
+  const { loadChatSession } = useChatSessionLoader({
+    onMessagesLoaded: (messages) => setMessages(messages),
+    onSessionIdSet: (sessionId) => setCurrentSessionId(sessionId),
+    onError: (error) => {
+      setErrorMessage(error);
       setTimeout(() => setErrorMessage(null), 5000);
-    }
-  }, []);
+    },
+  });
+
+  // Use message saver hook
+  const { saveMessage } = useMessageSaver({
+    currentSessionId,
+    onSessionIdSet: (sessionId) => setCurrentSessionId(sessionId),
+    onError: (error) => {
+      setErrorMessage(error);
+      setTimeout(() => setErrorMessage(null), 5000);
+    },
+  });
 
   // Load chat session from URL parameter
   useEffect(() => {
@@ -301,7 +117,6 @@ function ChatPageContent() {
     }
   }, [searchParams, currentSessionId, loadChatSession]);
 
-  // Listen for URL changes (for browser back/forward buttons)
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
@@ -318,122 +133,14 @@ function ChatPageContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [currentSessionId, loadChatSession]);
 
-  // Save message to database
-  const saveMessage = useCallback(
-    async (message: Message, sessionId?: string) => {
-      try {
-        console.log(
-          "Saving message:",
-          message.id,
-          "with providerResults:",
-          message.providerResults
-        );
-
-        // Extract all image URLs from provider results for storage
-        const allImageUrls: string[] = [];
-        if (message.providerResults) {
-          message.providerResults.forEach((result) => {
-            if (result.displayUrls) {
-              // Extract image IDs from API endpoints and store those
-              const imageIds = result.displayUrls
-                .filter((url) => url && url.startsWith("/api/images/"))
-                .map((url) => {
-                  const match = url.match(/\/api\/images\/(.+)$/);
-                  if (match) {
-                    console.log(
-                      `Extracting image ID ${match[1]} from URL ${url}`
-                    );
-                    return match[1]; // Store just the ID
-                  }
-                  return url; // Fallback to full URL
-                })
-                .filter(Boolean);
-
-              if (imageIds.length > 0) {
-                allImageUrls.push(...imageIds);
-              } else {
-                // Fallback: filter out base64 URLs but keep others
-                const nonBase64Urls = result.displayUrls.filter(
-                  (url) => url && !url.startsWith("data:")
-                );
-                allImageUrls.push(...nonBase64Urls);
-              }
-            }
-          });
-        }
-
-        // If we have explicit imageUrls, include them too (but prefer image IDs)
-        if (message.imageUrls) {
-          const messageUrls = message.imageUrls
-            .filter((url) => url && !url.startsWith("data:")) // Filter out base64
-            .map((url) => {
-              // If it's an API endpoint, extract the ID
-              if (url.startsWith("/api/images/")) {
-                const match = url.match(/\/api\/images\/(.+)$/);
-                return match ? match[1] : url;
-              }
-              return url;
-            });
-
-          // Only add if we don't already have URLs from provider results
-          if (allImageUrls.length === 0) {
-            allImageUrls.push(...messageUrls);
-          }
-        }
-
-        const response = await fetch("/api/chat/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: sessionId || currentSessionId,
-            role: message.role,
-            content: message.content,
-            type: message.type,
-            imageUrls: allImageUrls, // Use extracted image URLs
-            providerData: message.providerResults,
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Message saved successfully:", data);
-          
-          // If we provided a sessionId explicitly, update our current session state
-          const effectiveSessionId = sessionId || data.sessionId;
-          if (!currentSessionId && effectiveSessionId) {
-            setCurrentSessionId(effectiveSessionId);
-            // Update URL without reloading
-            window.history.pushState({}, "", `/chat?session=${effectiveSessionId}`);
-          }
-        } else {
-          const errorText = await response.text();
-          console.error("Failed to save message:", response.status, errorText);
-
-          if (response.status === 503) {
-            console.warn(
-              "Database temporarily unavailable - message not saved"
-            );
-            // Don't show alert for every message save failure, just log it
-          }
-        }
-      } catch (error) {
-        console.error("Failed to save message:", error);
-      }
-    },
-    [currentSessionId]
-  );
-
-  // Handle new chat
   const handleNewChat = () => {
     setMessages([]);
     setCurrentSessionId(null);
     setInput("");
     setErrorMessage(null);
-    // Navigate to /chat without session ID - this will trigger session creation on first message
     router.push("/chat", { scroll: false });
   };
 
-  // Handle sidebar toggle
   const handleSidebarToggle = () => {
     const newCollapsed = !sidebarCollapsed;
     setSidebarCollapsed(newCollapsed);
@@ -442,14 +149,12 @@ function ChatPageContent() {
     }
   };
 
-  // Create a new session if needed
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (currentSessionId) {
       return currentSessionId;
     }
 
     try {
-      // Create a new session using the proper API
       const response = await fetch("/api/chat/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -489,7 +194,7 @@ function ChatPageContent() {
       // Clear any previous error messages
       setErrorMessage(null);
 
-      // Ensure we have a session before sending the message
+      // 1. Ensure we have a session before sending the message (ChatGPT-like flow)
       const sessionId = await ensureSession();
       if (!sessionId) {
         setErrorMessage("Failed to create chat session. Please try again.");
@@ -498,6 +203,7 @@ function ChatPageContent() {
         return;
       }
 
+      // 2. Add user message and save it
       const userMessage: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -511,13 +217,13 @@ function ChatPageContent() {
       setIsGenerating(true);
 
       // Save user message with the ensured session ID
-      await saveMessage(userMessage, sessionId);
+      await saveMessage(userMessage, { sessionId });
 
       try {
         if (isImageGenerationRequest()) {
           const providersToUse = providers || selectedProviders;
 
-          // Initialize provider results
+          // 3. Initialize provider results with pending status
           const initialProviderResults: ProviderResult[] = providersToUse.map(
             (provider) => ({
               provider,
@@ -528,6 +234,7 @@ function ChatPageContent() {
             })
           );
 
+          // 4. Create assistant message and add to UI immediately
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
@@ -539,9 +246,10 @@ function ChatPageContent() {
 
           setMessages((prev) => [...prev, assistantMessage]);
 
-          // Don't save assistant message yet, wait for provider results to complete
+          // 5. Save assistant message immediately with "pending" status (ChatGPT-like)
+          await saveMessage(assistantMessage, { sessionId });
 
-          // Update each provider's status to generating
+          // 6. Update each provider's status to generating
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
@@ -556,7 +264,7 @@ function ChatPageContent() {
             )
           );
 
-          // Generate images from each provider independently
+          // 7. Generate images from each provider independently
           const providerPromises = providersToUse.map(
             async (provider, providerIndex) => {
               try {
@@ -588,12 +296,7 @@ function ChatPageContent() {
                     }
                   });
 
-                  console.log(
-                    `${provider} display URLs processed:`,
-                    displayUrls.map((url) => url.substring(0, 50) + "...")
-                  );
-
-                  // Update this specific provider's result
+                  // Update this specific provider's result to completed
                   setMessages((prev) => {
                     const updatedMessages = prev.map((msg) =>
                       msg.id === assistantMessage.id
@@ -614,16 +317,10 @@ function ChatPageContent() {
                           }
                         : msg
                     );
-
-                    console.log(
-                      `${provider} updated messages:`,
-                      updatedMessages.find((m) => m.id === assistantMessage.id)
-                        ?.providerResults?.[providerIndex]
-                    );
                     return updatedMessages;
                   });
 
-                  // Save images to database if user is authenticated
+                  // 8. Save images to database and update with S3 URLs (ChatGPT-like)
                   if (
                     session?.user &&
                     "id" in session.user &&
@@ -655,9 +352,6 @@ function ChatPageContent() {
                               `Image from ${provider} saved successfully:`,
                               saveData
                             );
-                            console.log(
-                              `Returned displayUrl: ${saveData.image?.displayUrl}`
-                            );
 
                             // Update display URL with saved image URL
                             setMessages((prev) =>
@@ -679,9 +373,6 @@ function ChatPageContent() {
                                                         saveData.image
                                                           ?.displayUrl
                                                       ) {
-                                                        console.log(
-                                                          `Updating URL from ${url} to ${saveData.image.displayUrl}`
-                                                        );
                                                         return saveData.image
                                                           .displayUrl;
                                                       }
@@ -695,65 +386,64 @@ function ChatPageContent() {
                                   : msg
                               )
                             );
-
-                            // Immediately save the assistant message with the updated URL
-                            setMessages((prev) => {
-                              const updatedAssistantMessage = prev.find(
-                                (m) => m.id === assistantMessage.id
-                              );
-                              if (updatedAssistantMessage) {
-                                // Extract current image URLs from provider results
-                                const currentImageUrls: string[] = [];
-                                if (updatedAssistantMessage.providerResults) {
-                                  updatedAssistantMessage.providerResults.forEach(
-                                    (result) => {
-                                      if (result.displayUrls) {
-                                        currentImageUrls.push(
-                                          ...result.displayUrls
-                                        );
-                                      }
-                                    }
-                                  );
-                                }
-
-                                // Create message with current URLs and save immediately
-                                const messageToSave = {
-                                  ...updatedAssistantMessage,
-                                  imageUrls: currentImageUrls,
-                                };
-
-                                console.log(
-                                  `Saving assistant message immediately after ${provider} image save:`,
-                                  messageToSave
-                                );
-                                saveMessage(messageToSave, sessionId).catch(console.error);
-                              }
-                              return prev;
-                            });
                           } else {
-                            const errorText = await saveResponse.text();
                             console.error(
                               `Failed to save image from ${provider}:`,
-                              errorText
+                              await saveResponse.text()
                             );
                           }
-                        } catch (saveError) {
+                        } catch (error) {
                           console.error(
                             `Error saving image from ${provider}:`,
-                            saveError
+                            error
                           );
                         }
                       }) || [];
 
-                    // Wait for all image saves to complete
-                    await Promise.allSettled(imagePromises);
-                  }
+                    await Promise.all(imagePromises);
 
-                  return { success: true, provider, providerIndex };
+                    // 9. Save updated assistant message with final S3 URLs (ChatGPT-like)
+                    setMessages((prev) => {
+                      const finalAssistantMessage = prev.find(
+                        (m) => m.id === assistantMessage.id
+                      );
+                      if (finalAssistantMessage) {
+                        // Extract all image URLs from provider results
+                        const allImageUrls: string[] = [];
+                        if (finalAssistantMessage.providerResults) {
+                          finalAssistantMessage.providerResults.forEach(
+                            (result) => {
+                              if (result.displayUrls) {
+                                allImageUrls.push(...result.displayUrls);
+                              }
+                            }
+                          );
+                        }
+
+                        const finalMessage = {
+                          ...finalAssistantMessage,
+                          imageUrls: allImageUrls,
+                        };
+
+                        console.log(
+                          `Saving final assistant message with S3 URLs:`,
+                          finalMessage
+                        );
+                        saveMessage(finalMessage, { sessionId }).catch(
+                          console.error
+                        );
+                      }
+                      return prev;
+                    });
+                  }
                 } else {
-                  // Mark as failed
-                  setMessages((prev) => {
-                    const updatedMessages = prev.map((msg) =>
+                  // 10. Handle generation failure (ChatGPT-like)
+                  console.error(
+                    `${provider} generation failed:`,
+                    result.error || "Unknown error"
+                  );
+                  setMessages((prev) =>
+                    prev.map((msg) =>
                       msg.id === assistantMessage.id
                         ? {
                             ...msg,
@@ -763,31 +453,21 @@ function ChatPageContent() {
                                   ? {
                                       ...providerResult,
                                       status: "failed" as const,
-                                      error: "No images generated",
-                                      timestamp: new Date(),
+                                      error:
+                                        result.error || "Generation failed",
                                     }
                                   : providerResult
                             ),
                           }
                         : msg
-                    );
-
-                    return updatedMessages;
-                  });
-
-                  return {
-                    success: false,
-                    provider,
-                    providerIndex,
-                    error: "No images generated",
-                  };
+                    )
+                  );
                 }
-              } catch (providerError) {
-                console.warn(`Provider ${provider} failed:`, providerError);
-
-                // Mark as failed
-                setMessages((prev) => {
-                  const updatedMessages = prev.map((msg) =>
+              } catch (error) {
+                // 11. Handle provider error (ChatGPT-like)
+                console.error(`Error with ${provider}:`, error);
+                setMessages((prev) =>
+                  prev.map((msg) =>
                     msg.id === assistantMessage.id
                       ? {
                           ...msg,
@@ -798,39 +478,22 @@ function ChatPageContent() {
                                     ...providerResult,
                                     status: "failed" as const,
                                     error:
-                                      providerError instanceof Error
-                                        ? providerError.message
+                                      error instanceof Error
+                                        ? error.message
                                         : "Unknown error",
-                                    timestamp: new Date(),
                                   }
                                 : providerResult
                           ),
                         }
                       : msg
-                  );
-
-                  return updatedMessages;
-                });
-
-                return {
-                  success: false,
-                  provider,
-                  providerIndex,
-                  error:
-                    providerError instanceof Error
-                      ? providerError.message
-                      : "Unknown error",
-                };
+                  )
+                );
               }
             }
           );
 
-          // Wait for all providers to complete - no need to save again since we save incrementally
-          Promise.allSettled(providerPromises).then(() => {
-            console.log(
-              "All provider promises completed - images should already be saved incrementally"
-            );
-          });
+          // Wait for all providers to complete
+          await Promise.allSettled(providerPromises);
         } else {
           // Regular text response (you can integrate with OpenAI's chat API here)
           const assistantMessage: Message = {
@@ -843,17 +506,17 @@ function ChatPageContent() {
           };
 
           setMessages((prev) => [...prev, assistantMessage]);
-        }
-      } catch {
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "Sorry, something went wrong. Please try again.",
-          type: "text",
-          timestamp: new Date(),
-        };
 
-        setMessages((prev) => [...prev, errorMessage]);
+          // Save the text assistant message
+          await saveMessage(assistantMessage, { sessionId });
+        }
+      } catch (error) {
+        console.error("Error sending message:", error);
+        setErrorMessage(
+          error instanceof Error ? error.message : "An error occurred"
+        );
+        // Clear error after 5 seconds
+        setTimeout(() => setErrorMessage(null), 5000);
       } finally {
         setIsGenerating(false);
       }
@@ -861,11 +524,11 @@ function ChatPageContent() {
     [
       input,
       isGenerating,
+      ensureSession,
+      saveMessage,
       selectedProviders,
       selectedModels,
-      session,
-      saveMessage,
-      ensureSession,
+      session?.user,
     ]
   );
 
