@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 // Helper function to sanitize provider data by removing large base64 images
 function sanitizeProviderData(providerData: unknown): unknown {
@@ -100,7 +99,8 @@ export async function POST(request: NextRequest) {
           type,
           imageUrls: imageUrls || [],
           // Use pre-calculated sanitized provider data
-          providerData: sanitizedProviderData as Prisma.InputJsonValue,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          providerData: sanitizedProviderData as any,
         },
       });
 
