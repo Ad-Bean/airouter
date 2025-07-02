@@ -414,66 +414,6 @@ export function ChatSidebar({
             </div>
           )}
         </div>
-
-        {/* Bottom section with user info only */}
-        <div className="mt-auto flex items-center gap-2 h-16 border-t border-gray-200 dark:border-gray-700">
-          {/* User Info */}
-          <div className="p-2">
-            {!isCollapsed ? (
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                  {session.user?.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt="user avatar"
-                      className="w-full h-full rounded-full object-cover"
-                      width={20}
-                      height={20}
-                      unoptimized
-                    />
-                  ) : (
-                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                      {session.user?.name?.charAt(0) ||
-                        session.user?.email?.charAt(0) ||
-                        "U"}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <p
-                    className="text-xs font-medium text-gray-900 dark:text-white"
-                    title={session.user?.name || session.user?.email || ""}
-                  >
-                    {(session.user?.name || session.user?.email || "").length >
-                    18
-                      ? `${(
-                          session.user?.name ||
-                          session.user?.email ||
-                          ""
-                        ).substring(0, 18)}...`
-                      : session.user?.name || session.user?.email || ""}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {sessions.length} chats
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-center">
-                <div
-                  className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center"
-                  title={session.user?.name || session.user?.email || ""}
-                >
-                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                    {session.user?.name?.charAt(0) ||
-                      session.user?.email?.charAt(0) ||
-                      "U"}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </>
   );

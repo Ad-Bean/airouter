@@ -23,7 +23,7 @@ export function ChatNavigation({
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
-    <nav className="relative z-50 h-12 px-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 transition-all duration-300">
+    <nav className="relative z-50 h-12 px-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm box-content border-b border-gray-200 dark:border-gray-700 transition-all duration-300">
       <div className="h-full flex items-center justify-end">
         <div className="hidden md:flex items-center space-x-3">
           <Link
