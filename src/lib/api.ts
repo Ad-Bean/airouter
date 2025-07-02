@@ -77,6 +77,11 @@ export const providerModels = {
       name: "DALL-E 2",
       description: "Previous generation, faster",
     },
+    {
+      id: "gpt-image-1",
+      name: "GPT Image 1",
+      description: "OpenAI's new state-of-the-art image generation model",
+    },
   ],
   stability: [
     {

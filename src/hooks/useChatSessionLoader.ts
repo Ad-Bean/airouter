@@ -58,28 +58,68 @@ export function useChatSessionLoader({
     ): ProviderResult[] | undefined => {
       if (!providerData) return undefined;
 
+      // Helper function to create a provider result with proper validation
+      const createProviderResult = (
+        data: Partial<ProviderResult>,
+        fallbackImages: string[] = [],
+        index: number = 0
+      ): ProviderResult => {
+        // Get images from the data or use fallback
+        let images = data.images || [];
+        let displayUrls = data.displayUrls || data.images || [];
+
+        // If no images in provider data, use fallback images
+        if ((!images || images.length === 0) && fallbackImages.length > 0) {
+          images = fallbackImages;
+          displayUrls = fallbackImages;
+        }
+
+        // Convert all URLs to proper display URLs
+        images = images.map(convertToDisplayUrl);
+        displayUrls = displayUrls.map(convertToDisplayUrl);
+
+        return {
+          provider: data.provider || `provider-${index}`,
+          model: data.model || null,
+          images,
+          displayUrls,
+          // Mark any unfinished images as failed on session load
+          status:
+            data.status === "pending" || data.status === "generating"
+              ? ("failed" as const)
+              : data.status || "completed",
+          error:
+            data.status === "pending" || data.status === "generating"
+              ? "Image generation was interrupted"
+              : data.error,
+          timestamp: data.timestamp ? new Date(data.timestamp) : undefined,
+        };
+      };
+
+      // Handle array of provider results
       if (Array.isArray(providerData)) {
-        return (providerData as ProviderResult[]).map(
-          (result: ProviderResult, index: number) => {
-            // Try to get images from the result, or distribute from imageUrls
-            let images = result.images || [];
-            let displayUrls = result.displayUrls || result.images || [];
+        // Validate that array items look like ProviderResult objects
+        const isValidProviderArray = providerData.every(
+          (item) =>
+            typeof item === "object" &&
+            item !== null &&
+            ("provider" in item || "images" in item || "displayUrls" in item)
+        );
 
-            // Convert all URLs to proper display URLs
-            images = images.map(convertToDisplayUrl);
-            displayUrls = displayUrls.map(convertToDisplayUrl);
+        if (isValidProviderArray) {
+          const providerArray = providerData as Partial<ProviderResult>[];
 
-            // If no images in provider data, try to use imageUrls as fallback
-            if (
-              (!images || images.length === 0) &&
-              processedImageUrls &&
-              processedImageUrls.length > 0
-            ) {
-              // For multiple providers, try to distribute images evenly
-              const imagesPerProvider = Math.ceil(
-                processedImageUrls.length /
-                  (providerData as ProviderResult[]).length
-              );
+          // If we have processedImageUrls and providers don't have images, distribute them
+          if (
+            processedImageUrls.length > 0 &&
+            providerArray.every((p) => !p.images || p.images.length === 0)
+          ) {
+            // Distribute images evenly among providers
+            const imagesPerProvider = Math.ceil(
+              processedImageUrls.length / providerArray.length
+            );
+
+            return providerArray.map((result, index) => {
               const startIndex = index * imagesPerProvider;
               const endIndex = Math.min(
                 startIndex + imagesPerProvider,
@@ -89,68 +129,34 @@ export function useChatSessionLoader({
                 startIndex,
                 endIndex
               );
-              images = providerImages;
-              displayUrls = providerImages;
-            }
 
-            return {
-              provider: result.provider || "",
-              model: result.model || null,
-              images,
-              displayUrls,
-              // ChatGPT-like behavior: Mark any unfinished images as failed on session load
-              status:
-                result.status === "pending" || result.status === "generating"
-                  ? ("failed" as const)
-                  : result.status || "completed",
-              error:
-                result.status === "pending" || result.status === "generating"
-                  ? "Image generation was interrupted"
-                  : result.error,
-              timestamp: result.timestamp
-                ? new Date(result.timestamp)
-                : undefined,
-            };
+              return createProviderResult(result, providerImages, index);
+            });
+          } else {
+            // Use images from each provider result
+            return providerArray.map((result, index) =>
+              createProviderResult(result, [], index)
+            );
           }
-        );
-      } else if (typeof providerData === "object") {
-        // Handle single provider result or different format
-        const singleResult = providerData as ProviderResult;
-        let images = singleResult.images || processedImageUrls || [];
-        let displayUrls =
-          singleResult.displayUrls ||
-          singleResult.images ||
-          processedImageUrls ||
-          [];
-
-        // Convert all URLs to proper display URLs
-        images = images.map(convertToDisplayUrl);
-        displayUrls = displayUrls.map(convertToDisplayUrl);
-
-        return [
-          {
-            provider: singleResult.provider || "",
-            model: singleResult.model || null,
-            images,
-            displayUrls,
-            // ChatGPT-like behavior: Mark any unfinished images as failed on session load
-            status:
-              singleResult.status === "pending" ||
-              singleResult.status === "generating"
-                ? ("failed" as const)
-                : singleResult.status || "completed",
-            error:
-              singleResult.status === "pending" ||
-              singleResult.status === "generating"
-                ? "Image generation was interrupted"
-                : singleResult.error,
-            timestamp: singleResult.timestamp
-              ? new Date(singleResult.timestamp)
-              : undefined,
-          },
-        ];
+        }
       }
 
+      // Handle single provider result object
+      if (typeof providerData === "object" && providerData !== null) {
+        const singleResult = providerData as Partial<ProviderResult>;
+
+        // Check if it looks like a ProviderResult
+        if (
+          "provider" in singleResult ||
+          "images" in singleResult ||
+          "displayUrls" in singleResult
+        ) {
+          return [createProviderResult(singleResult, processedImageUrls, 0)];
+        }
+      }
+
+      // If providerData doesn't match expected format, return undefined
+      // The caller will handle creating fallback provider results if needed
       return undefined;
     },
     [convertToDisplayUrl]
@@ -171,18 +177,18 @@ export function useChatSessionLoader({
             console.log(
               "Processing message:",
               msg.id,
-              "providerData:",
-              msg.providerData,
-              "imageUrls:",
-              msg.imageUrls
+              "type:",
+              msg.type,
+              "providerData type:",
+              typeof msg.providerData,
+              "imageUrls count:",
+              msg.imageUrls?.length || 0
             );
 
             // Convert imageUrls to proper display URLs
             const processedImageUrls = msg.imageUrls
-              ? msg.imageUrls.map(convertToDisplayUrl)
+              ? msg.imageUrls.map(convertToDisplayUrl).filter(Boolean)
               : [];
-            console.log("Original imageUrls:", msg.imageUrls);
-            console.log("Processed imageUrls:", processedImageUrls);
 
             // Process provider data
             let providerResults = processProviderData(
@@ -190,34 +196,41 @@ export function useChatSessionLoader({
               processedImageUrls
             );
 
-            // If no provider results but we have imageUrls, create fallback provider results
-            if (
-              !providerResults &&
-              processedImageUrls &&
-              processedImageUrls.length > 0
-            ) {
-              providerResults = [
-                {
-                  provider: "unknown",
-                  model: null,
-                  images: processedImageUrls,
-                  displayUrls: processedImageUrls,
-                  status: "completed" as const,
-                  timestamp: new Date(msg.createdAt),
-                },
-              ];
+            // Create fallback provider results for image messages without proper provider data
+            if (msg.type === "image") {
+              if (!providerResults && processedImageUrls.length > 0) {
+                // Create a single provider result for legacy data
+                providerResults = [
+                  {
+                    provider: "legacy",
+                    model: null,
+                    images: processedImageUrls,
+                    displayUrls: processedImageUrls,
+                    status: "completed" as const,
+                    timestamp: new Date(msg.createdAt),
+                  },
+                ];
+                console.log("Created fallback provider result for legacy data");
+              } else if (!providerResults && processedImageUrls.length === 0) {
+                // Create empty provider result for image messages without images
+                providerResults = [
+                  {
+                    provider: "unknown",
+                    model: null,
+                    images: [],
+                    displayUrls: [],
+                    status: "failed" as const,
+                    error: "No images found",
+                    timestamp: new Date(msg.createdAt),
+                  },
+                ];
+                console.log(
+                  "Created empty provider result for image message without images"
+                );
+              }
             }
 
-            console.log(
-              "Processed provider results for message",
-              msg.id,
-              ":",
-              providerResults,
-              "processed imageUrls:",
-              processedImageUrls
-            );
-
-            return {
+            const processedMessage = {
               id: msg.id,
               role: msg.role as "user" | "assistant",
               content: msg.content,
@@ -226,6 +239,17 @@ export function useChatSessionLoader({
               providerResults,
               timestamp: new Date(msg.createdAt),
             };
+
+            console.log(
+              "Processed message",
+              msg.id,
+              "- Provider results:",
+              providerResults?.length || 0,
+              "Image URLs:",
+              processedImageUrls.length
+            );
+
+            return processedMessage;
           });
 
           console.log("Processed messages:", chatMessages);

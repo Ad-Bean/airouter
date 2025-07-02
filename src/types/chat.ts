@@ -3,7 +3,7 @@ export interface ProviderResult {
   model: string | null;
   images: string[];
   displayUrls?: string[];
-  status: "pending" | "generating" | "completed" | "failed";
+  status: "pending" | "generating" | "completed" | "failed" | "saving";
   error?: string;
   timestamp?: Date;
 }

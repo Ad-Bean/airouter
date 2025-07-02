@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { generateImage, type Provider, providerModels } from "@/lib/api";
+import { generateImage, type Provider } from "@/lib/api";
 import {
   Send,
   Image as ImageIcon,
@@ -17,6 +17,7 @@ import {
 import Image from "next/image";
 import { ChatNavigation } from "@/components/ChatNavigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
+import { ModelSelectorModal } from "@/components/ModelSelectorModal";
 import { type Message, type ProviderResult } from "@/types/chat";
 import { useChatSessionLoader } from "@/hooks/useChatSessionLoader";
 import { useMessageSaver } from "@/hooks/useMessageSaver";
@@ -80,12 +81,10 @@ function ChatPageContent() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Auto-scroll to bottom when new messages are added
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Use chat session loader hook
   const { loadChatSession } = useChatSessionLoader({
     onMessagesLoaded: (messages) => setMessages(messages),
     onSessionIdSet: (sessionId) => setCurrentSessionId(sessionId),
@@ -95,7 +94,6 @@ function ChatPageContent() {
     },
   });
 
-  // Use message saver hook
   const { saveMessage } = useMessageSaver({
     currentSessionId,
     onSessionIdSet: (sessionId) => setCurrentSessionId(sessionId),
@@ -105,7 +103,6 @@ function ChatPageContent() {
     },
   });
 
-  // Load chat session from URL parameter
   useEffect(() => {
     const sessionId = searchParams.get("session");
     if (sessionId && sessionId !== currentSessionId) {
@@ -138,6 +135,7 @@ function ChatPageContent() {
     setCurrentSessionId(null);
     setInput("");
     setErrorMessage(null);
+    setIsGenerating(false); // Ensure generating state is reset
     router.push("/chat", { scroll: false });
   };
 
@@ -148,6 +146,77 @@ function ChatPageContent() {
       localStorage.setItem("sidebarCollapsed", newCollapsed.toString());
     }
   };
+
+  const handleModelChange = (provider: string, model: string) => {
+    setSelectedModels((prev) => ({
+      ...prev,
+      [provider]: model,
+    }));
+  };
+
+  // Function to reload current session messages from backend
+  const reloadCurrentSession = useCallback(async () => {
+    if (currentSessionId) {
+      try {
+        const response = await fetch(`/api/chat/sessions/${currentSessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.session?.messages) {
+            // Convert backend messages to frontend format
+            const loadedMessages: Message[] = data.session.messages.map(
+              (msg: {
+                id: string;
+                role: string;
+                content: string;
+                type: string;
+                imageUrls: string[];
+                createdAt: string;
+                providerData?: unknown;
+              }) => ({
+                id: msg.id,
+                role: msg.role,
+                content: msg.content,
+                type: msg.type,
+                imageUrls: msg.imageUrls || [],
+                timestamp: new Date(msg.createdAt),
+                // Reconstruct providerResults from providerData if available
+                providerResults: msg.providerData
+                  ? Array.isArray(msg.providerData)
+                    ? msg.providerData
+                    : [msg.providerData]
+                  : undefined,
+              })
+            );
+            setMessages(loadedMessages);
+            console.log(
+              `Reloaded ${loadedMessages.length} messages from backend for session ${currentSessionId}`
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Failed to reload session:", error);
+      }
+    }
+  }, [currentSessionId]);
+
+  // Periodic reload during image generation to ensure UI stays in sync
+  const startPeriodicReload = useCallback(() => {
+    const interval = setInterval(async () => {
+      if (isGenerating && currentSessionId) {
+        await reloadCurrentSession();
+      }
+    }, 3000); // Reload every 3 seconds during generation
+
+    return () => clearInterval(interval);
+  }, [isGenerating, currentSessionId, reloadCurrentSession]);
+
+  // Start periodic reload when generation begins
+  useEffect(() => {
+    if (isGenerating) {
+      const cleanup = startPeriodicReload();
+      return cleanup;
+    }
+  }, [isGenerating, startPeriodicReload]);
 
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (currentSessionId) {
@@ -210,7 +279,14 @@ function ChatPageContent() {
       setMessages((prev) => [...prev, userMessage]);
       setInput("");
       setIsGenerating(true);
-      await saveMessage(userMessage, { sessionId });
+
+      // Save user message and get the result
+      const saveResult = await saveMessage(userMessage, { sessionId });
+
+      // If message save failed, reload from backend to ensure consistency
+      if (!saveResult.success) {
+        await reloadCurrentSession();
+      }
 
       try {
         if (isImageGenerationRequest()) {
@@ -233,23 +309,20 @@ function ChatPageContent() {
             timestamp: new Date(),
           };
 
+          // Add message to UI immediately for responsiveness
           setMessages((prev) => [...prev, assistantMessage]);
-          await saveMessage(assistantMessage, { sessionId });
 
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessage.id
-                ? {
-                    ...msg,
-                    providerResults: msg.providerResults?.map((result) => ({
-                      ...result,
-                      status: "generating" as const,
-                    })),
-                  }
-                : msg
-            )
-          );
+          // Save the initial assistant message to backend
+          const initialSaveResult = await saveMessage(assistantMessage, {
+            sessionId,
+          });
+          if (!initialSaveResult.success) {
+            console.error("Failed to save initial assistant message");
+            await reloadCurrentSession();
+            return;
+          }
 
+          // Generate images for each provider
           const providerPromises = providersToUse.map(
             async (provider, providerIndex) => {
               try {
@@ -268,11 +341,10 @@ function ChatPageContent() {
                   result.images.length > 0
                 ) {
                   console.log(
-                    `${provider} generated ${result.images.length} images:`,
-                    result.images.map((img) => img.substring(0, 50) + "...")
+                    `${provider} generated ${result.images.length} images`
                   );
 
-                  // Process display URLs
+                  // Update UI with generated images (optimistic update)
                   const displayUrls = result.images.map((imageData) => {
                     if (imageData.startsWith("data:")) {
                       return imageData;
@@ -281,9 +353,8 @@ function ChatPageContent() {
                     }
                   });
 
-                  // Update this specific provider's result to completed
-                  setMessages((prev) => {
-                    const updatedMessages = prev.map((msg) =>
+                  setMessages((prev) =>
+                    prev.map((msg) =>
                       msg.id === assistantMessage.id
                         ? {
                             ...msg,
@@ -294,25 +365,24 @@ function ChatPageContent() {
                                       ...providerResult,
                                       images: result.images || [],
                                       displayUrls,
-                                      status: "completed" as const,
+                                      status: "saving" as const,
                                       timestamp: new Date(),
                                     }
                                   : providerResult
                             ),
                           }
                         : msg
-                    );
-                    return updatedMessages;
-                  });
+                    )
+                  );
 
-                  // 8. Save images to database and update with S3 URLs (ChatGPT-like)
+                  // Save images to backend
                   if (
                     session?.user &&
                     "id" in session.user &&
                     session.user.id
                   ) {
                     const imagePromises =
-                      result.images?.map(async (imageData, imageIndex) => {
+                      result.images?.map(async (imageData) => {
                         try {
                           const saveResponse = await fetch("/api/images/save", {
                             method: "POST",
@@ -338,7 +408,7 @@ function ChatPageContent() {
                               saveData
                             );
 
-                            // Update display URL with saved image URL
+                            // Update display URL with saved image URL (optimistic update)
                             setMessages((prev) =>
                               prev.map((msg) =>
                                 msg.id === assistantMessage.id
@@ -346,15 +416,15 @@ function ChatPageContent() {
                                       ...msg,
                                       providerResults: msg.providerResults?.map(
                                         (providerResult, index) =>
-                                          index === providerIndex
+                                          index === providerIndex &&
+                                          saveData.image?.displayUrl
                                             ? {
                                                 ...providerResult,
                                                 displayUrls:
                                                   providerResult.displayUrls?.map(
                                                     (url, urlIndex) => {
                                                       if (
-                                                        urlIndex ===
-                                                          imageIndex &&
+                                                        urlIndex === 0 &&
                                                         saveData.image
                                                           ?.displayUrl
                                                       ) {
@@ -387,42 +457,29 @@ function ChatPageContent() {
 
                     await Promise.all(imagePromises);
 
-                    // 9. Save updated assistant message with final S3 URLs (ChatGPT-like)
-                    setMessages((prev) => {
-                      const finalAssistantMessage = prev.find(
-                        (m) => m.id === assistantMessage.id
-                      );
-                      if (finalAssistantMessage) {
-                        // Extract all image URLs from provider results
-                        const allImageUrls: string[] = [];
-                        if (finalAssistantMessage.providerResults) {
-                          finalAssistantMessage.providerResults.forEach(
-                            (result) => {
-                              if (result.displayUrls) {
-                                allImageUrls.push(...result.displayUrls);
-                              }
+                    // Mark provider as completed (optimistic update)
+                    setMessages((prev) =>
+                      prev.map((msg) =>
+                        msg.id === assistantMessage.id
+                          ? {
+                              ...msg,
+                              providerResults: msg.providerResults?.map(
+                                (providerResult, index) =>
+                                  index === providerIndex
+                                    ? {
+                                        ...providerResult,
+                                        status: "completed" as const,
+                                        timestamp: new Date(),
+                                      }
+                                    : providerResult
+                              ),
                             }
-                          );
-                        }
-
-                        const finalMessage = {
-                          ...finalAssistantMessage,
-                          imageUrls: allImageUrls,
-                        };
-
-                        console.log(
-                          `Saving final assistant message with S3 URLs:`,
-                          finalMessage
-                        );
-                        saveMessage(finalMessage, { sessionId }).catch(
-                          console.error
-                        );
-                      }
-                      return prev;
-                    });
+                          : msg
+                      )
+                    );
                   }
                 } else {
-                  // 10. Handle generation failure (ChatGPT-like)
+                  // Handle generation failure
                   console.error(
                     `${provider} generation failed:`,
                     result.error || "Unknown error"
@@ -449,7 +506,7 @@ function ChatPageContent() {
                   );
                 }
               } catch (error) {
-                // 11. Handle provider error (ChatGPT-like)
+                // Handle provider error
                 console.error(`Error with ${provider}:`, error);
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -479,6 +536,34 @@ function ChatPageContent() {
 
           // Wait for all providers to complete
           await Promise.allSettled(providerPromises);
+
+          // Save the final message state to backend
+          setMessages((prev) => {
+            const finalMessage = prev.find((m) => m.id === assistantMessage.id);
+            if (finalMessage) {
+              // Extract all image URLs from provider results
+              const allImageUrls: string[] = [];
+              if (finalMessage.providerResults) {
+                finalMessage.providerResults.forEach((result) => {
+                  if (result.displayUrls) {
+                    allImageUrls.push(...result.displayUrls);
+                  }
+                });
+              }
+
+              const messageWithUrls = {
+                ...finalMessage,
+                imageUrls: allImageUrls,
+              };
+
+              // Save to backend asynchronously
+              saveMessage(messageWithUrls, { sessionId }).catch(console.error);
+            }
+            return prev;
+          });
+
+          // Reload session from backend to ensure UI consistency
+          await reloadCurrentSession();
         } else {
           // Regular text response (you can integrate with OpenAI's chat API here)
           const assistantMessage: Message = {
@@ -493,7 +578,14 @@ function ChatPageContent() {
           setMessages((prev) => [...prev, assistantMessage]);
 
           // Save the text assistant message
-          await saveMessage(assistantMessage, { sessionId });
+          const textSaveResult = await saveMessage(assistantMessage, {
+            sessionId,
+          });
+
+          // Reload from backend to ensure consistency
+          if (!textSaveResult.success) {
+            await reloadCurrentSession();
+          }
         }
       } catch (error) {
         console.error("Error sending message:", error);
@@ -502,6 +594,9 @@ function ChatPageContent() {
         );
         // Clear error after 5 seconds
         setTimeout(() => setErrorMessage(null), 5000);
+
+        // Reload session to ensure consistency after error
+        await reloadCurrentSession();
       } finally {
         setIsGenerating(false);
       }
@@ -514,6 +609,7 @@ function ChatPageContent() {
       selectedProviders,
       selectedModels,
       session?.user,
+      reloadCurrentSession,
     ]
   );
 
@@ -812,6 +908,10 @@ function ChatPageContent() {
                                             <Loader className="w-3 h-3 animate-spin text-blue-500" />
                                           )}
                                           {providerResult.status ===
+                                            "saving" && (
+                                            <Loader className="w-3 h-3 animate-spin text-yellow-500" />
+                                          )}
+                                          {providerResult.status ===
                                             "completed" && (
                                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                           )}
@@ -823,7 +923,7 @@ function ChatPageContent() {
                                       </div>
 
                                       {/* Compact Content Area */}
-                                      <div className="min-h-[120px]">
+                                      <div className="min-h-[120px] relative">
                                         {/* Images */}
                                         {providerResult.displayUrls &&
                                           providerResult.displayUrls.length >
@@ -853,7 +953,12 @@ function ChatPageContent() {
                                                         }`}
                                                         width={200}
                                                         height={200}
-                                                        className="w-full aspect-square object-cover rounded border border-gray-200 dark:border-gray-600 transition-transform hover:scale-[1.02]"
+                                                        className={`w-full aspect-square object-cover rounded border border-gray-200 dark:border-gray-600 transition-transform hover:scale-[1.02] ${
+                                                          providerResult.status ===
+                                                          "saving"
+                                                            ? "opacity-75"
+                                                            : ""
+                                                        }`}
                                                         unoptimized={
                                                           needsUnoptimized
                                                         }
@@ -862,20 +967,36 @@ function ChatPageContent() {
                                                         }
                                                       />
 
+                                                      {/* Saving overlay */}
+                                                      {providerResult.status ===
+                                                        "saving" && (
+                                                        <div className="absolute inset-0 bg-yellow-100/50 dark:bg-yellow-900/30 rounded flex items-center justify-center">
+                                                          <div className="text-center">
+                                                            <Loader className="w-4 h-4 text-yellow-600 animate-spin mx-auto mb-1" />
+                                                            <p className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+                                                              Saving...
+                                                            </p>
+                                                          </div>
+                                                        </div>
+                                                      )}
+
                                                       {/* Compact overlay */}
-                                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                        <button
-                                                          onClick={() =>
-                                                            window.open(
-                                                              url,
-                                                              "_blank"
-                                                            )
-                                                          }
-                                                          className="bg-white/90 hover:bg-white text-gray-800 px-2 py-1 rounded text-xs font-medium transition-colors shadow-lg"
-                                                        >
-                                                          View
-                                                        </button>
-                                                      </div>
+                                                      {providerResult.status !==
+                                                        "saving" && (
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                          <button
+                                                            onClick={() =>
+                                                              window.open(
+                                                                url,
+                                                                "_blank"
+                                                              )
+                                                            }
+                                                            className="bg-white/90 hover:bg-white text-gray-800 px-2 py-1 rounded text-xs font-medium transition-colors shadow-lg"
+                                                          >
+                                                            View
+                                                          </button>
+                                                        </div>
+                                                      )}
                                                     </div>
                                                   );
                                                 }
@@ -888,7 +1009,7 @@ function ChatPageContent() {
                                           "generating" && (
                                           <div className="flex items-center justify-center h-32 bg-gray-50 dark:bg-gray-700/30 rounded border border-dashed border-gray-300 dark:border-gray-600">
                                             <div className="text-center">
-                                              <Loader className="w-5 h-5 text-gray-400 animate-spin mx-auto mb-1" />
+                                              <Loader className="w-5 h-5 text-blue-500 animate-spin mx-auto mb-1" />
                                               <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 Generating...
                                               </p>
@@ -1134,106 +1255,13 @@ function ChatPageContent() {
         </div>
 
         {/* Model Selector Modal */}
-        {showModelSelector && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[80vh] overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Configure AI Models
-                </h3>
-                <button
-                  onClick={() => setShowModelSelector(false)}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-4 max-h-[60vh] overflow-y-auto">
-                {/* Google Models Section */}
-                {selectedProviders.includes("google") && (
-                  <div className="mb-6">
-                    <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                      <ImageIcon className="w-4 h-4" />
-                      Google Imagen Models
-                    </h4>
-                    <div className="space-y-2">
-                      {providerModels.google.map((model) => (
-                        <label
-                          key={model.id}
-                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                            selectedModels.google === model.id
-                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                              : "border-gray-200 dark:border-gray-600"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="google-model"
-                            value={model.id}
-                            checked={selectedModels.google === model.id}
-                            onChange={(e) =>
-                              setSelectedModels((prev) => ({
-                                ...prev,
-                                google: e.target.value,
-                              }))
-                            }
-                            className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 dark:text-white">
-                              {model.name}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {model.description}
-                            </div>
-                            {model.id.includes("preview") && (
-                              <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
-                                Preview
-                              </span>
-                            )}
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Info Section */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                    Model Information
-                  </h5>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    • <strong>4.0 Ultra:</strong> Highest quality, slower
-                    generation
-                    <br />• <strong>4.0 Fast:</strong> Good quality, faster
-                    generation
-                    <br />• <strong>3.0:</strong> Stable and reliable
-                    performance
-                    <br />• <strong>Preview models:</strong> Latest features,
-                    may have limitations
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setShowModelSelector(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setShowModelSelector(false)}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                >
-                  Apply Settings
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ModelSelectorModal
+          isOpen={showModelSelector}
+          onClose={() => setShowModelSelector(false)}
+          selectedProviders={selectedProviders}
+          selectedModels={selectedModels}
+          onModelChange={handleModelChange}
+        />
       </div>
     </div>
   );
