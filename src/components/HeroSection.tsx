@@ -27,7 +27,6 @@ export function HeroSection({
   error,
   generatedImages,
   isAuthenticated,
-  onAuthRequired,
 }: HeroSectionProps) {
   return (
     <main className="px-6 py-16">
@@ -69,7 +68,6 @@ export function HeroSection({
               onGenerate={onGenerate}
               error={error}
               isAuthenticated={isAuthenticated}
-              onAuthRequired={onAuthRequired}
             />
 
             <GeneratedImagesDisplay

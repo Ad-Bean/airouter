@@ -12,7 +12,6 @@ interface ImageGenerationFormProps {
   onGenerate: () => void;
   error: string | null;
   isAuthenticated: boolean;
-  onAuthRequired?: () => void;
 }
 
 export function ImageGenerationForm({
@@ -24,7 +23,6 @@ export function ImageGenerationForm({
   onGenerate,
   error,
   isAuthenticated,
-  onAuthRequired,
 }: ImageGenerationFormProps) {
   const suggestions = [
     "A futuristic cityscape at sunset",
@@ -61,7 +59,7 @@ export function ImageGenerationForm({
         <motion.button
           whileHover={{ scale: isGenerating ? 1 : 1.05 }}
           whileTap={{ scale: isGenerating ? 1 : 0.95 }}
-          onClick={isAuthenticated ? onGenerate : onAuthRequired}
+          onClick={onGenerate}
           disabled={isGenerating || !prompt.trim()}
           className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
         >
