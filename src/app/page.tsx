@@ -11,6 +11,7 @@ import { FeaturesSection } from "@/components/FeaturesSection";
 import { CTASection } from "@/components/CTASection";
 import { Footer } from "@/components/Footer";
 import { AuthModal } from "@/components/AuthModal";
+import { DEFAULT_PROVIDERS } from "@/config/providers";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -40,20 +41,13 @@ export default function Home() {
   useEffect(() => {
     if (session && status === "authenticated") {
       const shouldRedirect = localStorage.getItem("shouldRedirectToChat");
-      const pendingPrompt = localStorage.getItem("pendingPrompt");
-      const pendingProviders = localStorage.getItem("pendingProviders");
 
-      if (shouldRedirect === "true" && (pendingPrompt || pendingProviders)) {
+      if (shouldRedirect === "true") {
         const redirectTimer = setTimeout(() => {
-          localStorage.removeItem("shouldRedirectToChat");
           router.push("/chat");
         }, 100);
 
         return () => clearTimeout(redirectTimer);
-      }
-
-      if (shouldRedirect === "true" && !pendingPrompt && !pendingProviders) {
-        localStorage.removeItem("shouldRedirectToChat");
       }
     }
   }, [session, status, router]);

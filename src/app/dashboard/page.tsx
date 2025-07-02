@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { DashboardStats } from "@/types/dashboard";
+import { PROVIDER_CONFIGS } from "@/config/providers";
 
 // Helper function to get the display URL for an image
 // Always use the API endpoint to ensure proper access control and S3 proxying
@@ -198,40 +199,32 @@ export default function DashboardPage() {
               Object.keys(stats.providerStats).length > 0 ? (
                 <div className="space-y-3">
                   {Object.entries(stats.providerStats).map(
-                    ([provider, count]) => (
-                      <div
-                        key={provider}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              provider === "openai"
-                                ? "bg-blue-500"
-                                : provider === "google"
-                                ? "bg-red-500"
-                                : provider === "stability"
-                                ? "bg-green-500"
-                                : provider === "replicate"
-                                ? "bg-purple-500"
-                                : "bg-gray-500"
-                            }`}
-                          ></div>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
-                            {provider === "openai"
-                              ? "DALL-E"
-                              : provider === "google"
-                              ? "Imagen"
-                              : provider === "stability"
-                              ? "SDXL"
-                              : provider}
+                    ([provider, count]) => {
+                      const config =
+                        PROVIDER_CONFIGS[
+                          provider as keyof typeof PROVIDER_CONFIGS
+                        ];
+                      return (
+                        <div
+                          key={provider}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <div
+                              className={`w-3 h-3 rounded-full ${
+                                config ? config.badgeColor : "bg-gray-500"
+                              }`}
+                            ></div>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+                              {config ? config.shortDescription : provider}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {count}
                           </span>
                         </div>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {count}
-                        </span>
-                      </div>
-                    )
+                      );
+                    }
                   )}
                 </div>
               ) : (

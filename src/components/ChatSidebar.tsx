@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 import {
   MessageSquare,
   Plus,
@@ -11,6 +12,8 @@ import {
   Check,
   X,
   Menu,
+  Image as ImageIcon,
+  Cpu,
 } from "lucide-react";
 import { ChatSession } from "@/types/chat";
 
@@ -181,27 +184,73 @@ export function ChatSidebar({
         ${isCollapsed ? "w-12" : "w-64"}
       `}
       >
-        {/* Header - simplified without collapse button */}
-        <div className="p-2 border-b border-gray-200 dark:border-gray-700 h-12 flex items-center">
-          {!isCollapsed && (
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Chat History
-            </h2>
-          )}
-        </div>
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-2">
+            {!isCollapsed && (
+              <button
+                onClick={() => router.push("/")}
+                className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1 transition-colors"
+                title="Go to home page"
+              >
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+              </button>
+            )}
 
-        {/* New Chat Button with improved styling */}
-        <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
-          <button
-            onClick={handleNewChat}
-            className={`w-full flex items-center gap-2 p-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${
-              isCollapsed ? "justify-center px-2" : ""
-            }`}
-            title={isCollapsed ? "Start New Chat" : ""}
-          >
-            <Plus className="w-3.5 h-3.5 flex-shrink-0" />
-            {!isCollapsed && <span>New Chat</span>}
-          </button>
+            <button
+              onClick={onToggle}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
+              title={
+                isCollapsed
+                  ? "Expand sidebar (Click to show chat history)"
+                  : "Collapse sidebar"
+              }
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <Menu
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  isCollapsed ? "rotate-90" : ""
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Navigation buttons */}
+          {!isCollapsed && (
+            <div className="px-2 pb-2 space-y-1">
+              <button
+                onClick={handleNewChat}
+                className="w-full flex items-center gap-2 p-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+              >
+                <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>New Chat</span>
+              </button>
+              <button
+                onClick={() => router.push("/gallery")}
+                className="w-full flex items-center gap-2 p-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+              >
+                <ImageIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Gallery</span>
+              </button>
+              <button
+                onClick={() => router.push("/models")}
+                className="w-full flex items-center gap-2 p-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+              >
+                <Cpu className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Models</span>
+              </button>
+            </div>
+          )}
+
+          {/* Chats title */}
+          {!isCollapsed && (
+            <div className="px-2 pb-2 mt-4">
+              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                Chats
+              </h2>
+            </div>
+          )}
         </div>
 
         {/* Sessions List - improved overflow handling */}
@@ -226,7 +275,7 @@ export function ChatSidebar({
           ) : sessions.length === 0 ? (
             <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
               {!isCollapsed && (
-                <div className="text-center text-gray-500 dark:text-gray-400">
+                <div className="text-center text-gray-500 dark:text-gray-400 mt-4">
                   <MessageSquare className="w-6 h-6 mx-auto mb-1 opacity-50" />
                   <p className="text-xs">No chats yet</p>
                 </div>
@@ -366,18 +415,29 @@ export function ChatSidebar({
           )}
         </div>
 
-        {/* Bottom section with user info and collapse button */}
-        <div className="mt-auto">
+        {/* Bottom section with user info only */}
+        <div className="mt-auto flex items-center gap-2 h-16 border-t border-gray-200 dark:border-gray-700">
           {/* User Info */}
-          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-2">
             {!isCollapsed ? (
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                    {session.user?.name?.charAt(0) ||
-                      session.user?.email?.charAt(0) ||
-                      "U"}
-                  </span>
+                  {session.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt="user avatar"
+                      className="w-full h-full rounded-full object-cover"
+                      width={20}
+                      height={20}
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                      {session.user?.name?.charAt(0) ||
+                        session.user?.email?.charAt(0) ||
+                        "U"}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <p
@@ -412,27 +472,6 @@ export function ChatSidebar({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Collapse Button */}
-          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={onToggle}
-              className={`w-full flex items-center justify-center p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-all duration-200`}
-              title={
-                isCollapsed
-                  ? "Expand sidebar (Click to show chat history)"
-                  : "Collapse sidebar"
-              }
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              <Menu
-                className={`w-4 h-4 transition-transform duration-200 ${
-                  isCollapsed ? "rotate-90" : ""
-                }`}
-              />
-              {!isCollapsed && <span className="ml-2 text-xs">Collapse</span>}
-            </button>
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { GeneratedImage } from "@/types/dashboard";
+import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from "@/config/providers";
 
 // Helper function to get the display URL for an image
 // Always use the API endpoint to ensure proper access control and S3 proxying
@@ -30,13 +31,7 @@ interface PaginationInfo {
 }
 
 type ViewMode = "grid" | "list";
-type FilterOption =
-  | "all"
-  | "openai"
-  | "google"
-  | "stability"
-  | "replicate"
-  | "favorites";
+type FilterOption = "all" | "favorites" | (typeof AVAILABLE_PROVIDERS)[number];
 
 export default function GalleryPage() {
   const { data: session, status } = useSession();
@@ -227,10 +222,11 @@ export default function GalleryPage() {
               >
                 <option value="all">All Images</option>
                 <option value="favorites">Favorites</option>
-                <option value="openai">OpenAI</option>
-                <option value="google">Google</option>
-                <option value="stability">Stability</option>
-                <option value="replicate">Replicate</option>
+                {AVAILABLE_PROVIDERS.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {PROVIDER_INFO[provider].displayName}
+                  </option>
+                ))}
               </select>
 
               <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">

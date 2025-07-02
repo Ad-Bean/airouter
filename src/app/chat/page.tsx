@@ -19,6 +19,12 @@ import { ChatNavigation } from "@/components/ChatNavigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ModelSelectorModal } from "@/components/ModelSelectorModal";
 import { type Message } from "@/types/chat";
+import {
+  AVAILABLE_PROVIDERS,
+  PROVIDER_INFO,
+  DEFAULT_PROVIDERS,
+  DEFAULT_MODELS,
+} from "@/config/providers";
 
 function ChatPageContent() {
   const { data: session, status } = useSession();
@@ -27,12 +33,10 @@ function ChatPageContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedProviders, setSelectedProviders] = useState<Provider[]>([
-    "openai",
-  ]);
-  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
-    google: "imagen-4.0-generate-preview-06-06",
-  });
+  const [selectedProviders, setSelectedProviders] =
+    useState<Provider[]>(DEFAULT_PROVIDERS);
+  const [selectedModels, setSelectedModels] =
+    useState<Record<string, string>>(DEFAULT_MODELS);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -365,6 +369,39 @@ function ChatPageContent() {
     }
   };
 
+  // Handle pending prompt and providers after successful authentication
+  useEffect(() => {
+    if (session && status === "authenticated") {
+      const pendingPrompt = localStorage.getItem("pendingPrompt");
+      const pendingProviders = localStorage.getItem("pendingProviders");
+      const shouldRedirect = localStorage.getItem("shouldRedirectToChat");
+
+      if (shouldRedirect === "true" || (pendingPrompt && !isGenerating)) {
+        // Restore pending prompt
+        if (pendingPrompt) {
+          setInput(pendingPrompt);
+          localStorage.removeItem("pendingPrompt");
+        }
+
+        // Restore pending providers
+        if (pendingProviders) {
+          try {
+            const providers = JSON.parse(pendingProviders);
+            if (Array.isArray(providers) && providers.length > 0) {
+              setSelectedProviders(providers);
+            }
+          } catch (error) {
+            console.warn("Failed to parse pending providers:", error);
+          }
+          localStorage.removeItem("pendingProviders");
+        }
+
+        // Clean up redirect flag
+        localStorage.removeItem("shouldRedirectToChat");
+      }
+    }
+  }, [session, status, isGenerating]);
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -542,8 +579,8 @@ function ChatPageContent() {
             {/* Input Area */}
             <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700">
               {/* Provider Selection */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-2">
+              <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-0">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     AI Models:
                   </span>
@@ -556,29 +593,28 @@ function ChatPageContent() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {(
-                    ["openai", "replicate", "stability", "google"] as Provider[]
-                  ).map((provider) => (
-                    <button
-                      key={provider}
-                      onClick={() => toggleProvider(provider)}
-                      className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                        selectedProviders.includes(provider)
-                          ? "bg-blue-500 text-white border-blue-500"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
-                      }`}
-                    >
-                      {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                      {provider === "openai" && " (DALL-E)"}
-                      {provider === "stability" && " (SDXL)"}
-                      {provider === "google" && " (Imagen)"}
-                    </button>
-                  ))}
+                  {AVAILABLE_PROVIDERS.map((provider) => {
+                    const info = PROVIDER_INFO[provider];
+                    return (
+                      <button
+                        key={provider}
+                        onClick={() => toggleProvider(provider)}
+                        className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                          selectedProviders.includes(provider)
+                            ? "bg-blue-500 text-white border-blue-500"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        }`}
+                      >
+                        {info.displayName}
+                        {info.description && ` (${info.description})`}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Message Input */}
-              <div className="p-4">
+              <div className="p-2">
                 <div className="flex gap-3">
                   <input
                     type="text"
@@ -587,12 +623,12 @@ function ChatPageContent() {
                     onKeyDown={handleKeyPress}
                     placeholder="Describe the image you want to generate..."
                     disabled={isGenerating}
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   />
                   <button
                     onClick={() => handleSendMessage()}
                     disabled={!input.trim() || isGenerating}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-6 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isGenerating ? (
                       <Loader className="w-4 h-4 animate-spin" />

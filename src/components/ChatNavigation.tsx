@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageIcon, Sun, Moon, User, LogOut } from "lucide-react";
+import { Sun, Moon, User, LogOut } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,16 +24,7 @@ export function ChatNavigation({
 
   return (
     <nav className="relative z-50 h-12 px-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 transition-all duration-300">
-      <div className="h-full flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
-            <ImageIcon className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white">
-            AIRouter
-          </span>
-        </Link>
-
+      <div className="h-full flex items-center justify-end">
         <div className="hidden md:flex items-center space-x-3">
           <Link
             href="/gallery"

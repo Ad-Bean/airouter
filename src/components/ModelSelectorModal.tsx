@@ -1,7 +1,8 @@
 "use client";
 
 import { X, ImageIcon } from "lucide-react";
-import { type Provider, providerModels } from "@/lib/api";
+import { type Provider } from "@/lib/api";
+import { PROVIDER_CONFIGS, getProviderModels } from "@/config/providers";
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -36,182 +37,57 @@ export function ModelSelectorModal({
         </div>
 
         <div className="p-4 max-h-[60vh] overflow-y-auto">
-          {/* Google Models Section */}
-          {selectedProviders.includes("google") && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                Google Imagen Models
-              </h4>
-              <div className="space-y-2">
-                {providerModels.google.map((model) => (
-                  <label
-                    key={model.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                      selectedModels.google === model.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 dark:border-gray-600"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="google-model"
-                      value={model.id}
-                      checked={selectedModels.google === model.id}
-                      onChange={(e) => onModelChange("google", e.target.value)}
-                      className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {model.name}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {model.description}
-                      </div>
-                      {model.id.includes("preview") && (
-                        <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
-                          Preview
-                        </span>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
+          {selectedProviders.map((provider) => {
+            const config = PROVIDER_CONFIGS[provider];
+            const models = getProviderModels(provider);
 
-          {/* Stability AI Models Section */}
-          {selectedProviders.includes("stability") && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                Stability AI Models
-              </h4>
-              <div className="space-y-2">
-                {providerModels.stability?.map((model) => (
-                  <label
-                    key={model.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                      selectedModels.stability === model.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 dark:border-gray-600"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="stability-model"
-                      value={model.id}
-                      checked={selectedModels.stability === model.id}
-                      onChange={(e) =>
-                        onModelChange("stability", e.target.value)
-                      }
-                      className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {model.name}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {model.description}
-                      </div>
-                    </div>
-                  </label>
-                )) || (
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    No models available for configuration
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            if (!config || models.length === 0) return null;
 
-          {/* OpenAI Models Section */}
-          {selectedProviders.includes("openai") && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                OpenAI DALL-E Models
-              </h4>
-              <div className="space-y-2">
-                {providerModels.openai?.map((model) => (
-                  <label
-                    key={model.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                      selectedModels.openai === model.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 dark:border-gray-600"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="openai-model"
-                      value={model.id}
-                      checked={selectedModels.openai === model.id}
-                      onChange={(e) => onModelChange("openai", e.target.value)}
-                      className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {model.name}
+            return (
+              <div key={provider} className="mb-6">
+                <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  {config.displayName} Models
+                </h4>
+                <div className="space-y-2">
+                  {models.map((model) => (
+                    <label
+                      key={model.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                        selectedModels[provider] === model.id
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                          : "border-gray-200 dark:border-gray-600"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={`${provider}-model`}
+                        value={model.id}
+                        checked={selectedModels[provider] === model.id}
+                        onChange={(e) =>
+                          onModelChange(provider, e.target.value)
+                        }
+                        className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          {model.name}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {model.description}
+                        </div>
+                        {model.id.includes("preview") && (
+                          <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
+                            Preview
+                          </span>
+                        )}
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {model.description}
-                      </div>
-                    </div>
-                  </label>
-                )) || (
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    No models available for configuration
-                  </div>
-                )}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Replicate Models Section */}
-          {selectedProviders.includes("replicate") && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                Replicate Models
-              </h4>
-              <div className="space-y-2">
-                {providerModels.replicate?.map((model) => (
-                  <label
-                    key={model.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                      selectedModels.replicate === model.id
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 dark:border-gray-600"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="replicate-model"
-                      value={model.id}
-                      checked={selectedModels.replicate === model.id}
-                      onChange={(e) =>
-                        onModelChange("replicate", e.target.value)
-                      }
-                      className="mt-1 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {model.name}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {model.description}
-                      </div>
-                    </div>
-                  </label>
-                )) || (
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    No models available for configuration
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            );
+          })}
 
           {/* Info Section */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">

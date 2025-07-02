@@ -47,6 +47,14 @@ export function AuthModal({
         if (result?.error) {
           setError("Invalid email or password");
         } else {
+          // Check if there are pending values to redirect to chat
+          const pendingPrompt = localStorage.getItem("pendingPrompt");
+          const pendingProviders = localStorage.getItem("pendingProviders");
+
+          if (pendingPrompt || pendingProviders) {
+            localStorage.setItem("shouldRedirectToChat", "true");
+          }
+
           // Call the success callback before closing
           onAuthSuccess?.();
           onClose();
@@ -78,6 +86,14 @@ export function AuthModal({
           if (result?.error) {
             setError("Registration successful, but login failed");
           } else {
+            // Check if there are pending values to redirect to chat
+            const pendingPrompt = localStorage.getItem("pendingPrompt");
+            const pendingProviders = localStorage.getItem("pendingProviders");
+
+            if (pendingPrompt || pendingProviders) {
+              localStorage.setItem("shouldRedirectToChat", "true");
+            }
+
             // Call the success callback before closing
             onAuthSuccess?.();
             onClose();
