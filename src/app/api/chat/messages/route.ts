@@ -3,47 +3,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 
-// Helper function to sanitize provider data by removing large base64 images
-function sanitizeProviderData(providerData: unknown): unknown {
-  if (!providerData) return null;
-
-  if (Array.isArray(providerData)) {
-    return providerData.map(sanitizeProviderData);
-  }
-
-  if (typeof providerData === "object" && providerData !== null) {
-    const sanitized = { ...(providerData as Record<string, unknown>) };
-
-    // Remove large image data but keep metadata
-    if (sanitized.images) {
-      // Replace base64 images with just a count or reference
-      sanitized.imageCount = Array.isArray(sanitized.images)
-        ? sanitized.images.length
-        : 0;
-      delete sanitized.images; // Remove the actual base64 data
-    }
-
-    if (sanitized.displayUrls) {
-      // Keep only the first few characters of each URL for reference
-      sanitized.displayUrlCount = Array.isArray(sanitized.displayUrls)
-        ? sanitized.displayUrls.length
-        : 0;
-      delete sanitized.displayUrls; // Remove the actual base64 data
-    }
-
-    // Recursively sanitize nested objects
-    Object.keys(sanitized).forEach((key) => {
-      if (typeof sanitized[key] === "object") {
-        sanitized[key] = sanitizeProviderData(sanitized[key]);
-      }
-    });
-
-    return sanitized;
-  }
-
-  return providerData;
-}
-
 // POST /api/chat/messages - Save a chat message
 export async function POST(request: NextRequest) {
   try {
@@ -53,21 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, role, content, type, imageUrls, providerData } =
-      await request.json();
-
-    // Log the size of data being processed
-    let sanitizedProviderData = null;
-    if (providerData) {
-      const originalSize = JSON.stringify(providerData).length;
-      sanitizedProviderData = sanitizeProviderData(providerData);
-      const sanitizedSize = JSON.stringify(sanitizedProviderData).length;
-      console.log(
-        `Provider data size reduced from ${originalSize} to ${sanitizedSize} bytes (${Math.round(
-          ((originalSize - sanitizedSize) / originalSize) * 100
-        )}% reduction)`
-      );
-    }
+    const { sessionId, role, content, type, imageUrls } = await request.json();
 
     // Wrap the entire database operation in retry logic
     const result = await withDatabaseRetry(async () => {
@@ -98,9 +43,6 @@ export async function POST(request: NextRequest) {
           content,
           type,
           imageUrls: imageUrls || [],
-          // Use pre-calculated sanitized provider data
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          providerData: sanitizedProviderData as any,
         },
       });
 
@@ -132,6 +74,47 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: "Failed to save chat message" },
+      { status: 500 }
+    );
+  }
+}
+
+// GET /api/chat/messages - Get messages for a session
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get("sessionId");
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: "Session ID required" },
+        { status: 400 }
+      );
+    }
+
+    const messages = await withDatabaseRetry(async () => {
+      return await prisma.chatMessage.findMany({
+        where: {
+          sessionId,
+          session: {
+            userId: session.user.id,
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    });
+
+    return NextResponse.json({ messages });
+  } catch (error) {
+    console.error("Error fetching chat messages:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch chat messages" },
       { status: 500 }
     );
   }

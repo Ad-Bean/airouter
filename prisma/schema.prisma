@@ -77,9 +77,11 @@ model ChatMessage {
   role          String   // "user" | "assistant"
   content       String   @db.Text
   type          String   // "text" | "image"
-  imageUrls     String[] // Array of image URLs
-  providerData  Json?    // Store provider results as JSON
+  status        String?  // "generating" | "completed" | "failed" for assistant messages
+  imageUrls     String[] // Array of final image URLs
+  metadata      Json?    // Store generation metadata (providers, models, etc.)
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 

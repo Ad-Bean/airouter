@@ -1,20 +1,15 @@
-export interface ProviderResult {
-  provider: string;
-  model: string | null;
-  images: string[];
-  displayUrls?: string[];
-  status: "pending" | "generating" | "completed" | "failed" | "saving";
-  error?: string;
-  timestamp?: Date;
-}
-
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   type: "text" | "image";
+  status?: "generating" | "completed" | "failed"; // Only for assistant messages
   imageUrls?: string[];
-  providerResults?: ProviderResult[];
+  metadata?: {
+    providers?: string[];
+    models?: Record<string, string>;
+    prompt?: string;
+  };
   timestamp: Date;
 }
 
