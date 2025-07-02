@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { Navigation } from "@/components/Navigation";
+import { ChatNavigation } from "@/components/ChatNavigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { type Message, type ProviderResult } from "@/types/chat";
 import { useChatSessionLoader } from "@/hooks/useChatSessionLoader";
@@ -191,19 +191,14 @@ function ChatPageContent() {
       const text = messageText || input.trim();
       if (!text || isGenerating) return;
 
-      // Clear any previous error messages
       setErrorMessage(null);
-
-      // 1. Ensure we have a session before sending the message (ChatGPT-like flow)
       const sessionId = await ensureSession();
       if (!sessionId) {
         setErrorMessage("Failed to create chat session. Please try again.");
-        // Clear error after 5 seconds
         setTimeout(() => setErrorMessage(null), 5000);
         return;
       }
 
-      // 2. Add user message and save it
       const userMessage: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -215,26 +210,20 @@ function ChatPageContent() {
       setMessages((prev) => [...prev, userMessage]);
       setInput("");
       setIsGenerating(true);
-
-      // Save user message with the ensured session ID
       await saveMessage(userMessage, { sessionId });
 
       try {
         if (isImageGenerationRequest()) {
           const providersToUse = providers || selectedProviders;
-
-          // 3. Initialize provider results with pending status
           const initialProviderResults: ProviderResult[] = providersToUse.map(
             (provider) => ({
               provider,
               model: selectedModels[provider] || null,
               images: [],
               displayUrls: [],
-              status: "pending",
+              status: "generating",
             })
           );
-
-          // 4. Create assistant message and add to UI immediately
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
@@ -245,11 +234,8 @@ function ChatPageContent() {
           };
 
           setMessages((prev) => [...prev, assistantMessage]);
-
-          // 5. Save assistant message immediately with "pending" status (ChatGPT-like)
           await saveMessage(assistantMessage, { sessionId });
 
-          // 6. Update each provider's status to generating
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
@@ -264,7 +250,6 @@ function ChatPageContent() {
             )
           );
 
-          // 7. Generate images from each provider independently
           const providerPromises = providersToUse.map(
             async (provider, providerIndex) => {
               try {
@@ -632,22 +617,27 @@ function ChatPageContent() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 flex">
       {/* Chat Sidebar */}
-      <ChatSidebar
-        currentSessionId={currentSessionId || undefined}
-        onNewChat={handleNewChat}
-        isCollapsed={sidebarCollapsed}
-        onToggle={handleSidebarToggle}
-      />
+      <div className="flex-shrink-0">
+        <ChatSidebar
+          currentSessionId={currentSessionId || undefined}
+          onNewChat={handleNewChat}
+          isCollapsed={sidebarCollapsed}
+          onToggle={handleSidebarToggle}
+        />
+      </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="relative z-10 flex flex-col h-screen">
-          <Navigation
-            isDark={isDark}
-            onToggleTheme={toggleTheme}
-            onShowLogin={handleShowLogin}
-            onShowRegister={handleShowRegister}
-          />
+          {/* Navigation aligned with content area */}
+          <div className="flex-shrink-0">
+            <ChatNavigation
+              isDark={isDark}
+              onToggleTheme={toggleTheme}
+              onShowLogin={handleShowLogin}
+              onShowRegister={handleShowRegister}
+            />
+          </div>
 
           <div className="flex-1 flex flex-col min-h-0">
             {/* Error Message */}

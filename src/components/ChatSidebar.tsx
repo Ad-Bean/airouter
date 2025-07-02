@@ -182,9 +182,9 @@ export function ChatSidebar({
       `}
       >
         {/* Header - simplified without collapse button */}
-        <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-2 border-b border-gray-200 dark:border-gray-700 h-12 flex items-center">
           {!isCollapsed && (
-            <h2 className="text-xs font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
               Chat History
             </h2>
           )}
@@ -369,8 +369,8 @@ export function ChatSidebar({
         {/* Bottom section with user info and collapse button */}
         <div className="mt-auto">
           {/* User Info */}
-          {!isCollapsed && (
-            <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-2 border-t border-gray-200 dark:border-gray-700">
+            {!isCollapsed ? (
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                   <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
@@ -398,8 +398,21 @@ export function ChatSidebar({
                   </p>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex justify-center">
+                <div
+                  className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center"
+                  title={session.user?.name || session.user?.email || ""}
+                >
+                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                    {session.user?.name?.charAt(0) ||
+                      session.user?.email?.charAt(0) ||
+                      "U"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Collapse Button */}
           <div className="p-2 border-t border-gray-200 dark:border-gray-700">
