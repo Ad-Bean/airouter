@@ -26,7 +26,7 @@ A modern Next.js 15 application that provides a unified interface for generating
 1. Clone the repository:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Ad-Bean/airouter
 cd airouter
 ```
 
@@ -70,6 +70,12 @@ bun dev
 ```
 
 6. Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+## Demo
+
+Below is an example of an AI-generated image using the platform:
+
+![Example Image](public/example.jpeg)
 
 ## API Providers
 
