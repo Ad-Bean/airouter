@@ -9,6 +9,8 @@ export interface GenerateImageParams {
   width?: number;
   height?: number;
   steps?: number;
+  n?: number; // For OpenAI models
+  sampleCount?: number; // For Google Vertex AI models
 }
 
 export interface GenerateImageResponse {

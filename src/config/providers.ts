@@ -5,6 +5,9 @@ export interface ModelConfig {
   id: string;
   name: string;
   description: string;
+  supportsImageCount?: boolean;
+  maxImages?: number;
+  defaultImages?: number;
 }
 
 // Provider configuration interface
@@ -23,22 +26,36 @@ export interface ProviderConfig {
 export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
   openai: {
     name: "openai",
-    displayName: "OpenAI DALL-E",
-    shortDescription: "DALL-E",
+    displayName: "OpenAI",
+    shortDescription: "OpenAI Image Generation",
     iconName: "Wand2",
     color: "from-pink-500 to-rose-600",
     badgeColor: "bg-blue-500",
     enabled: !!process.env.OPENAI_API_KEY,
     models: [
       {
-        id: "dall-e-2",
-        name: "DALL-E 2",
-        description: "Faster and more reliable",
-      },
-      {
         id: "dall-e-3",
         name: "DALL-E 3",
         description: "Latest and most capable model",
+        supportsImageCount: true,
+        maxImages: 1,
+        defaultImages: 1,
+      },
+      {
+        id: "dall-e-2",
+        name: "DALL-E 2",
+        description: "Faster and more reliable",
+        supportsImageCount: true,
+        maxImages: 10,
+        defaultImages: 1,
+      },
+      {
+        id: "gpt-image-1",
+        name: "GPT Image 1",
+        description: "OpenAI's latest image generation model",
+        supportsImageCount: true,
+        maxImages: 10,
+        defaultImages: 1,
       },
     ],
   },
@@ -94,51 +111,81 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
         id: "imagen-4.0-generate-preview-06-06",
         name: "Imagen 4.0 (Latest Preview)",
         description: "Latest preview version with improved quality",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagen-4.0-fast-generate-preview-06-06",
         name: "Imagen 4.0 Fast (Preview)",
         description: "Faster generation with good quality",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagen-4.0-ultra-generate-preview-06-06",
         name: "Imagen 4.0 Ultra (Preview)",
         description: "Highest quality, slower generation",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagen-3.0-generate-002",
         name: "Imagen 3.0",
         description: "Stable version with reliable performance",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagen-3.0-generate-001",
         name: "Imagen 3.0 (v001)",
         description: "Previous stable version",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagen-3.0-fast-generate-001",
         name: "Imagen 3.0 Fast",
         description: "Faster generation with good quality",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagen-3.0-capability-001",
         name: "Imagen 3.0 Capability",
         description: "Enhanced capabilities model",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagegeneration@006",
         name: "Image Generation v006",
         description: "Legacy model v006",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagegeneration@005",
         name: "Image Generation v005",
         description: "Legacy model v005",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
       {
         id: "imagegeneration@002",
         name: "Image Generation v002",
         description: "Legacy model v002",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
       },
     ],
   },
@@ -168,6 +215,7 @@ export const DEFAULT_PROVIDERS: Provider[] = ["openai"];
 
 // Default model configurations
 export const DEFAULT_MODELS: Record<string, string> = {
+  openai: "dall-e-2", // Default to DALL-E 2 for OpenAI
   google: "imagen-4.0-generate-preview-06-06",
 };
 

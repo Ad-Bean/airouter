@@ -16,7 +16,7 @@ function getOpenAIClient(): OpenAI {
 
 export interface OpenAIGenerateParams {
   prompt: string;
-  model?: "dall-e-2" | "dall-e-3";
+  model?: "gpt-image-1" | "dall-e-2" | "dall-e-3";
   size?: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
   quality?: "standard" | "hd";
   n?: number;
@@ -63,15 +63,8 @@ export async function generateWithOpenAI(
     );
 
     // Build request parameters based on model
-    const requestParams: {
-      model: "dall-e-2" | "dall-e-3";
-      prompt: string;
-      size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
-      response_format: "b64_json";
-      quality?: "standard" | "hd";
-      n?: number;
-    } = {
-      model: model as "dall-e-2" | "dall-e-3",
+    const baseParams = {
+      model: model as "gpt-image-1" | "dall-e-2" | "dall-e-3",
       prompt: sanitizedPrompt,
       size: compatibleSize as
         | "256x256"
@@ -79,24 +72,81 @@ export async function generateWithOpenAI(
         | "1024x1024"
         | "1792x1024"
         | "1024x1792",
-      response_format: "b64_json", // Request base64 data instead of URLs
     };
 
-    // DALL-E 3 specific parameters
-    if (model === "dall-e-3") {
-      requestParams.quality = quality as "standard" | "hd";
-      requestParams.n = 1; // DALL-E 3 only supports n=1
+    type RequestParams =
+      | {
+          model: "gpt-image-1";
+          prompt: string;
+          size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
+          n?: number;
+        }
+      | {
+          model: "dall-e-2" | "dall-e-3";
+          prompt: string;
+          size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
+          response_format: "b64_json";
+          quality?: "standard" | "hd";
+          n?: number;
+        };
+
+    let requestParams: RequestParams;
+
+    // Model-specific parameters
+    if (model === "gpt-image-1") {
+      // GPT Image 1 doesn't support response_format and always returns base64
+      requestParams = {
+        ...baseParams,
+        model: "gpt-image-1",
+        n: Math.min(n, 10), // GPT Image 1 supports up to 10 images
+      };
+    } else if (model === "dall-e-3") {
+      // DALL-E 3 parameters
+      requestParams = {
+        ...baseParams,
+        model: "dall-e-3",
+        response_format: "b64_json", // Request base64 data instead of URLs
+        quality: quality as "standard" | "hd",
+        n: 1, // DALL-E 3 only supports n=1
+      };
     } else {
       // DALL-E 2 parameters
-      requestParams.n = Math.min(n, 10); // DALL-E 2 supports up to 10 images
+      requestParams = {
+        ...baseParams,
+        model: "dall-e-2",
+        response_format: "b64_json", // Request base64 data instead of URLs
+        n: Math.min(n, 10), // DALL-E 2 supports up to 10 images
+      };
     }
 
     const response = await openai.images.generate(requestParams);
 
-    const images = (response.data || [])
-      .map((item: { b64_json?: string | null }) => item.b64_json)
-      .filter((base64): base64 is string => Boolean(base64))
-      .map((base64) => `data:image/png;base64,${base64}`); // Convert to data URL format
+    // Handle different response formats based on model
+    const images: string[] = [];
+
+    for (const item of response.data || []) {
+      // Type for potential different response formats
+      const responseItem = item as {
+        b64_json?: string | null;
+        data?: string | null;
+        url?: string | null;
+      };
+
+      if (model === "gpt-image-1") {
+        // GPT Image 1 returns base64 data (format may vary)
+        if (responseItem.b64_json) {
+          images.push(`data:image/png;base64,${responseItem.b64_json}`);
+        } else if (responseItem.data) {
+          // Handle potential different response format for gpt-image-1
+          images.push(`data:image/png;base64,${responseItem.data}`);
+        }
+      } else {
+        // DALL-E 2 and 3 with b64_json format
+        if (responseItem.b64_json) {
+          images.push(`data:image/png;base64,${responseItem.b64_json}`);
+        }
+      }
+    }
 
     if (images.length === 0) {
       throw new Error("No images returned from OpenAI");

@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, prompt, providers, models } = await request.json();
+    const { sessionId, prompt, providers, models, imageCount } =
+      await request.json();
 
     // Create initial assistant message with generating status
     const assistantMessage = await withDatabaseRetry(async () => {
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
           metadata: {
             providers,
             models,
+            imageCount,
             prompt,
           },
         },
@@ -134,6 +136,7 @@ export async function POST(request: NextRequest) {
       prompt,
       providers,
       models,
+      imageCount || {},
       session.user.id
     );
 
@@ -166,19 +169,39 @@ async function generateImagesBackground(
   prompt: string,
   providers: Provider[],
   models: Record<string, string>,
+  imageCount: Record<string, number>,
   userId: string
 ) {
   try {
     const generationPromises = providers.map(async (provider) => {
       try {
-        const result = await generateImage({
+        const count = imageCount[provider] || 1;
+        const generateParams: {
+          prompt: string;
+          provider: Provider;
+          model?: string;
+          width: number;
+          height: number;
+          steps: number;
+          n?: number;
+          sampleCount?: number;
+        } = {
           prompt,
           provider,
           model: models[provider],
           width: 1024,
           height: 1024,
           steps: 20,
-        });
+        };
+
+        // Add the appropriate count parameter based on provider
+        if (provider === "google") {
+          generateParams.sampleCount = count;
+        } else if (provider === "openai") {
+          generateParams.n = count;
+        }
+
+        const result = await generateImage(generateParams);
         console.log(`Generated from ${provider}:`, result);
 
         if (result.success && result.images && result.images.length > 0) {

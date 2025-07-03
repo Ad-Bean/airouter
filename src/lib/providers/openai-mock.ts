@@ -59,9 +59,9 @@ function generateMockImageDataURL(
 export async function generateWithOpenAIMock(
   params: OpenAIGenerateParams
 ): Promise<OpenAIGenerateResponse> {
-  const { prompt, size = "1024x1024" } = params;
+  const { prompt, size = "1024x1024", n = 1 } = params;
 
-  console.log(`[MOCK] Generating image for prompt: "${prompt}"`);
+  console.log(`[MOCK] Generating ${n} image(s) for prompt: "${prompt}"`);
 
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -69,13 +69,23 @@ export async function generateWithOpenAIMock(
   // Parse size parameter
   const [width, height] = size.split("x").map(Number);
 
-  // Generate a local data URL image instead of using external service
-  const mockImageUrl = generateMockImageDataURL(prompt, width, height);
+  // Generate multiple images if n > 1
+  const images = [];
+  for (let i = 0; i < n; i++) {
+    // Add slight variation for multiple images
+    const modifiedPrompt = n > 1 ? `${prompt} (variation ${i + 1})` : prompt;
+    const mockImageUrl = generateMockImageDataURL(
+      modifiedPrompt,
+      width,
+      height
+    );
+    images.push(mockImageUrl);
+  }
 
   return {
-    images: [mockImageUrl],
+    images,
     usage: {
-      total_tokens: prompt.length,
+      total_tokens: prompt.length * n,
     },
   };
 }

@@ -23,6 +23,7 @@ import { type Message } from "@/types/chat";
 import {
   AVAILABLE_PROVIDERS,
   PROVIDER_INFO,
+  PROVIDER_CONFIGS,
   DEFAULT_PROVIDERS,
   DEFAULT_MODELS,
 } from "@/config/providers";
@@ -38,6 +39,7 @@ function ChatPageContent() {
     useState<Provider[]>(DEFAULT_PROVIDERS);
   const [selectedModels, setSelectedModels] =
     useState<Record<string, string>>(DEFAULT_MODELS);
+  const [imageCount, setImageCount] = useState<Record<string, number>>({});
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -219,6 +221,13 @@ function ChatPageContent() {
     }));
   };
 
+  const handleImageCountChange = (provider: string, count: number) => {
+    setImageCount((prev) => ({
+      ...prev,
+      [provider]: count,
+    }));
+  };
+
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (currentSessionId) {
       return currentSessionId;
@@ -302,6 +311,7 @@ function ChatPageContent() {
           metadata: {
             providers: providers || selectedProviders,
             models: selectedModels,
+            imageCount,
             prompt: text,
           },
           timestamp: new Date(),
@@ -317,6 +327,7 @@ function ChatPageContent() {
             prompt: text,
             providers: providers || selectedProviders,
             models: selectedModels,
+            imageCount,
           }),
         });
         console.log("Image generation response:", generateResponse);
@@ -333,7 +344,14 @@ function ChatPageContent() {
         setIsGenerating(false);
       }
     },
-    [input, isGenerating, ensureSession, selectedProviders, selectedModels]
+    [
+      input,
+      isGenerating,
+      ensureSession,
+      selectedProviders,
+      selectedModels,
+      imageCount,
+    ]
   );
 
   const toggleTheme = () => {
@@ -358,6 +376,7 @@ function ChatPageContent() {
           prompt: editPrompt,
           providers: [provider],
           models: { [provider]: selectedModels[provider] },
+          imageCount: { [provider]: imageCount[provider] || 1 },
           editImageUrl: imageUrl,
         }),
       });
@@ -576,6 +595,12 @@ function ChatPageContent() {
                   .map((message) => {
                     const prompt = message.metadata?.prompt as string;
                     const providers = message.metadata?.providers as string[];
+                    const models = message.metadata?.models as Record<
+                      string,
+                      string
+                    >;
+                    const messageImageCount = message.metadata
+                      ?.imageCount as Record<string, number>;
 
                     return (
                       <div
@@ -589,11 +614,35 @@ function ChatPageContent() {
                               <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 leading-relaxed">
                                 {prompt}
                               </h3>
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 flex-wrap">
                                 <div className="flex items-center gap-2">
                                   <Bot className="w-3.5 h-3.5 text-gray-500" />
                                   <span className="text-xs text-gray-600 dark:text-gray-400">
-                                    {providers?.join(" + ") || "AI Generated"}
+                                    {providers
+                                      ?.map((provider) => {
+                                        const model = models?.[provider];
+                                        const count =
+                                          messageImageCount?.[provider];
+                                        const modelName =
+                                          PROVIDER_CONFIGS[
+                                            provider as Provider
+                                          ]?.models.find((m) => m.id === model)
+                                            ?.name || model;
+                                        let displayText =
+                                          PROVIDER_INFO[provider as Provider]
+                                            ?.displayName || provider;
+
+                                        if (modelName) {
+                                          displayText += ` (${modelName})`;
+                                        }
+
+                                        if (count && count > 1) {
+                                          displayText += ` x${count}`;
+                                        }
+
+                                        return displayText;
+                                      })
+                                      .join(" + ") || "AI Generated"}
                                   </span>
                                 </div>
                                 <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -650,10 +699,28 @@ function ChatPageContent() {
                                       <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                                         {PROVIDER_INFO[provider as Provider]
                                           ?.displayName || provider}
+                                        {models?.[provider] && (
+                                          <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                            (
+                                            {PROVIDER_CONFIGS[
+                                              provider as Provider
+                                            ]?.models.find(
+                                              (m) => m.id === models[provider]
+                                            )?.name || models[provider]}
+                                            )
+                                          </span>
+                                        )}
                                       </h4>
                                       <p className="text-xs text-gray-500 dark:text-gray-400">
                                         {images.length} image
                                         {images.length > 1 ? "s" : ""}
+                                        {messageImageCount?.[provider] &&
+                                          messageImageCount[provider] > 1 && (
+                                            <span className="ml-1">
+                                              (requested{" "}
+                                              {messageImageCount[provider]})
+                                            </span>
+                                          )}
                                       </p>
                                     </div>
                                   </div>
@@ -860,7 +927,9 @@ function ChatPageContent() {
           onClose={() => setShowModelSelector(false)}
           selectedProviders={selectedProviders}
           selectedModels={selectedModels}
+          imageCount={imageCount}
           onModelChange={handleModelChange}
+          onImageCountChange={handleImageCountChange}
         />
       </div>
     </div>

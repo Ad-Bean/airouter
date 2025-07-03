@@ -8,6 +8,7 @@ export interface Message {
   metadata?: {
     providers?: string[];
     models?: Record<string, string>;
+    imageCount?: Record<string, number>;
     prompt?: string;
   };
   timestamp: Date;

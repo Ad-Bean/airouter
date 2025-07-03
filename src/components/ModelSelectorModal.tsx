@@ -9,7 +9,9 @@ interface ModelSelectorModalProps {
   onClose: () => void;
   selectedProviders: Provider[];
   selectedModels: Record<string, string>;
+  imageCount: Record<string, number>;
   onModelChange: (provider: string, model: string) => void;
+  onImageCountChange: (provider: string, count: number) => void;
 }
 
 export function ModelSelectorModal({
@@ -17,7 +19,9 @@ export function ModelSelectorModal({
   onClose,
   selectedProviders,
   selectedModels,
+  imageCount,
   onModelChange,
+  onImageCountChange,
 }: ModelSelectorModalProps) {
   if (!isOpen) return null;
 
@@ -40,6 +44,9 @@ export function ModelSelectorModal({
           {selectedProviders.map((provider) => {
             const config = PROVIDER_CONFIGS[provider];
             const models = getProviderModels(provider);
+            const selectedModel = models.find(
+              (m) => m.id === selectedModels[provider]
+            );
 
             if (!config || models.length === 0) return null;
 
@@ -85,6 +92,40 @@ export function ModelSelectorModal({
                     </label>
                   ))}
                 </div>
+
+                {/* Image Count Controls */}
+                {selectedModel?.supportsImageCount && (
+                  <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {provider === "google"
+                        ? "Sample Count"
+                        : "Number of Images"}
+                      :{" "}
+                      {imageCount[provider] || selectedModel.defaultImages || 1}
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max={selectedModel.maxImages || 1}
+                      value={
+                        imageCount[provider] || selectedModel.defaultImages || 1
+                      }
+                      onChange={(e) =>
+                        onImageCountChange(provider, parseInt(e.target.value))
+                      }
+                      className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <span>1</span>
+                      <span>{selectedModel.maxImages || 1}</span>
+                    </div>
+                    {selectedModel.maxImages === 1 && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                        This model only supports generating 1 image at a time
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -95,9 +136,14 @@ export function ModelSelectorModal({
               Model Information
             </h5>
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              • <strong>4.0 Ultra:</strong> Highest quality, slower generation
-              <br />• <strong>4.0 Fast:</strong> Good quality, faster generation
-              <br />• <strong>3.0:</strong> Stable and reliable performance
+              • <strong>GPT Image 1:</strong> OpenAI&apos;s latest image
+              generation model (up to 10 images)
+              <br />• <strong>DALL-E 3:</strong> Highest quality, single image
+              generation
+              <br />• <strong>DALL-E 2:</strong> Faster generation, supports
+              multiple images
+              <br />• <strong>Imagen 4.0:</strong> Google&apos;s latest with
+              configurable sample count
               <br />• <strong>Preview models:</strong> Latest features, may have
               limitations
             </p>

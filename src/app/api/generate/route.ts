@@ -15,6 +15,8 @@ interface GenerateRequest {
   width?: number;
   height?: number;
   steps?: number;
+  n?: number; // For OpenAI models
+  sampleCount?: number; // For Google Vertex AI models
 }
 
 export async function POST(request: NextRequest) {
@@ -27,6 +29,8 @@ export async function POST(request: NextRequest) {
       width = 1024,
       height = 1024,
       steps = 20,
+      n,
+      sampleCount,
     } = body;
     console.log(
       `Generating image with provider: ${provider}, model: ${model}, size: ${width}x${height}, steps: ${steps}`
@@ -57,24 +61,30 @@ export async function POST(request: NextRequest) {
         if (process.env.USE_OPENAI_MOCK === "true") {
           result = await generateWithOpenAIMock({
             prompt,
-            model: (model as "dall-e-2" | "dall-e-3" | undefined) || "dall-e-2",
+            model:
+              (model as "gpt-image-1" | "dall-e-2" | "dall-e-3" | undefined) ||
+              "dall-e-2",
             size: `${width}x${height}` as
               | "256x256"
               | "512x512"
               | "1024x1024"
               | "1792x1024"
               | "1024x1792",
+            n: n || 1,
           });
         } else {
           result = await generateWithOpenAI({
             prompt,
-            model: (model as "dall-e-2" | "dall-e-3" | undefined) || "dall-e-2",
+            model:
+              (model as "gpt-image-1" | "dall-e-2" | "dall-e-3" | undefined) ||
+              "dall-e-2",
             size: `${width}x${height}` as
               | "256x256"
               | "512x512"
               | "1024x1024"
               | "1792x1024"
               | "1024x1792",
+            n: n || 1,
           });
         }
         break;
@@ -102,7 +112,7 @@ export async function POST(request: NextRequest) {
         result = await generateWithGoogle({
           prompt,
           model: model || "imagen-4.0-generate-preview-06-06", // Updated to latest model
-          sampleCount: 1,
+          sampleCount: sampleCount || 1,
         });
         break;
 
