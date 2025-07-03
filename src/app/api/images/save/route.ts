@@ -9,30 +9,16 @@ export async function POST(request: NextRequest) {
     const requestData = await request.json();
     const session = await getServerSession(authOptions);
 
-    // For development, create a test user if needed
-    let userId = session?.user?.id;
-
-    if (!userId) {
-      // Use retry wrapper for database operations
-      const testUser = await withDatabaseRetry(async () => {
-        let user = await prisma.user.findFirst({
-          where: { email: "test@example.com" },
-        });
-
-        if (!user) {
-          user = await prisma.user.create({
-            data: {
-              email: "test@example.com",
-              name: "Test User",
-            },
-          });
-        }
-
-        return user;
-      });
-
-      userId = testUser.id;
+    // Require authentication - no fallback to test user
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
+
+    const userId = session.user.id;
+    console.log("Saving image for user:", userId, session.user.email);
 
     const { prompt, imageData, provider, model, width, height, steps } =
       requestData;

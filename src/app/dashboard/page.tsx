@@ -48,13 +48,20 @@ export default function DashboardPage() {
     setIsDark(shouldUseDark);
     document.documentElement.classList.toggle("dark", shouldUseDark);
   }, []);
-
   const fetchStats = async () => {
     try {
       const response = await fetch("/api/dashboard/stats");
+
       if (response.ok) {
         const data = await response.json();
         setStats(data);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Failed to fetch stats:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
       }
     } catch (error) {
       console.error("Failed to fetch dashboard stats:", error);

@@ -19,7 +19,7 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [selectedProviders, setSelectedProviders] = useState<Provider[]>([
-    "openai",
+    DEFAULT_PROVIDERS[0],
   ]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<"login" | "register">(
