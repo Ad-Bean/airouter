@@ -8,11 +8,12 @@ import { type Provider } from "@/lib/api";
 import {
   Send,
   Image as ImageIcon,
-  User,
   Bot,
   Loader,
   Plus,
   X,
+  Edit2,
+  Check,
 } from "lucide-react";
 import Image from "next/image";
 import { ChatNavigation } from "@/components/ChatNavigation";
@@ -51,6 +52,12 @@ function ChatPageContent() {
   });
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [editingImage, setEditingImage] = useState<{
+    messageId: string;
+    imageUrl: string;
+    provider: string;
+  } | null>(null);
+  const [editPrompt, setEditPrompt] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -336,6 +343,89 @@ function ChatPageContent() {
     localStorage.setItem("theme", newTheme ? "dark" : "light");
   };
 
+  const handleEditImage = async (imageUrl: string, provider: string) => {
+    if (!editPrompt.trim() || !currentSessionId) return;
+
+    setIsGenerating(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/chat/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          prompt: editPrompt,
+          providers: [provider],
+          models: { [provider]: selectedModels[provider] },
+          editImageUrl: imageUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to edit image");
+      }
+
+      setEditingImage(null);
+      setEditPrompt("");
+    } catch (error) {
+      console.error("Error editing image:", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to edit image"
+      );
+      setTimeout(() => setErrorMessage(null), 5000);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const startEditingImage = (
+    messageId: string,
+    imageUrl: string,
+    provider: string
+  ) => {
+    setEditingImage({ messageId, imageUrl, provider });
+    setEditPrompt("");
+  };
+
+  const cancelEditing = () => {
+    setEditingImage(null);
+    setEditPrompt("");
+  };
+
+  // Group images by provider for each message
+  const groupImagesByProvider = (message: Message) => {
+    if (!message.imageUrls || !message.metadata?.providers) return {};
+
+    const providers = message.metadata.providers as string[];
+    const imageGroups: Record<string, string[]> = {};
+
+    // Assuming images are returned in the same order as providers
+    // Each provider typically returns 1-2 images
+    let imageIndex = 0;
+    providers.forEach((provider) => {
+      const imagesPerProvider = Math.floor(
+        message.imageUrls!.length / providers.length
+      );
+      const remainingImages = message.imageUrls!.length % providers.length;
+      const currentProviderImages =
+        imagesPerProvider + (imageIndex < remainingImages ? 1 : 0);
+
+      const providerImages = message.imageUrls!.slice(
+        imageIndex,
+        imageIndex + currentProviderImages
+      );
+
+      if (providerImages.length > 0) {
+        imageGroups[provider] = providerImages;
+      }
+
+      imageIndex += currentProviderImages;
+    });
+
+    return imageGroups;
+  };
+
   const handleShowLogin = () => {
     router.push("/?showLogin=true");
   };
@@ -456,148 +546,278 @@ function ChatPageContent() {
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="flex-1 overflow-y-auto p-4">
               {messages.length === 0 && (
-                <div className="text-center py-8 mt-24">
-                  <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                    Welcome to AI Image Generator Chat
+                <div className="text-center py-20">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+                    <ImageIcon className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                    Create Amazing Images with AI
                   </h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md mx-auto text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md mx-auto">
                     Describe any image you&apos;d like me to create and
                     I&apos;ll generate it for you using advanced AI models.
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
                     Select your preferred AI models below and start creating!
                   </p>
                 </div>
               )}
 
-              {/* ChatGPT-like message flow */}
-              <div className="max-w-4xl mx-auto space-y-6">
-                {messages.map((message) => (
-                  <div key={message.id} className="flex gap-4">
-                    {/* Avatar */}
-                    <div className="flex-shrink-0">
+              {/* Generation Cards */}
+              <div className="max-w-7xl mx-auto space-y-6">
+                {messages
+                  .filter(
+                    (msg) =>
+                      msg.role === "assistant" &&
+                      (msg.imageUrls?.length || msg.status === "generating")
+                  )
+                  .map((message) => {
+                    const prompt = message.metadata?.prompt as string;
+                    const providers = message.metadata?.providers as string[];
+
+                    return (
                       <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                          message.role === "user"
-                            ? "bg-blue-500"
-                            : "bg-gray-600 dark:bg-gray-400"
-                        }`}
+                        key={message.id}
+                        className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
                       >
-                        {message.role === "user" ? (
-                          <User className="w-4 h-4 text-white" />
-                        ) : (
-                          <Bot className="w-4 h-4 text-white" />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      {message.content && (
-                        <div className="prose dark:prose-invert max-w-none">
-                          <p className="text-gray-900 dark:text-gray-100 mb-2">
-                            {message.content}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Generation status */}
-                      {message.role === "assistant" &&
-                        message.status === "generating" && (
-                          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-4">
-                            <Loader className="w-4 h-4 animate-spin" />
-                            <span className="text-sm">
-                              Generating images with{" "}
-                              {message.metadata?.providers?.join(", ")}...
-                            </span>
-                          </div>
-                        )}
-
-                      {/* Generated Images */}
-                      {message.imageUrls && message.imageUrls.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                          {message.imageUrls.map((url, index) => (
-                            <div key={index} className="relative group">
-                              <Image
-                                src={
-                                  url.startsWith("/api/")
-                                    ? url
-                                    : `/api/images/${url}`
-                                }
-                                alt={`Generated image ${index + 1}`}
-                                width={200}
-                                height={200}
-                                className="w-full aspect-square object-cover rounded-lg border border-gray-200 dark:border-gray-700 hover:scale-105 transition-transform cursor-pointer"
-                                onClick={() =>
-                                  window.open(
-                                    url.startsWith("/api/")
-                                      ? url
-                                      : `/api/images/${url}`,
-                                    "_blank"
-                                  )
-                                }
-                              />
+                        {/* Card Header */}
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 leading-relaxed">
+                                {prompt}
+                              </h3>
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Bot className="w-3.5 h-3.5 text-gray-500" />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                                    {providers?.join(" + ") || "AI Generated"}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                  {message.timestamp.toLocaleDateString()}{" "}
+                                  {message.timestamp.toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      )}
 
-                      {/* Failed status */}
-                      {message.role === "assistant" &&
-                        message.status === "failed" && (
-                          <div className="flex items-center gap-2 text-red-500 dark:text-red-400 mb-2">
-                            <X className="w-4 h-4" />
-                            <span className="text-sm">
-                              Failed to generate images. Please try again.
-                            </span>
+                        {/* Generation Status */}
+                        {message.status === "generating" && (
+                          <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-3">
+                              <Loader className="w-4 h-4 animate-spin text-blue-600" />
+                              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                                Generating images with {providers?.join(", ")}
+                                ...
+                              </span>
+                            </div>
                           </div>
                         )}
 
-                      {/* Timestamp */}
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                        {message.timestamp.toLocaleTimeString()}
+                        {/* Failed Status */}
+                        {message.status === "failed" && (
+                          <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-3">
+                              <X className="w-4 h-4 text-red-600" />
+                              <span className="text-xs font-medium text-red-700 dark:text-red-300">
+                                Failed to generate images. Please try again.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Images Grid */}
+                        {message.imageUrls && message.imageUrls.length > 0 && (
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              {Object.entries(
+                                groupImagesByProvider(message)
+                              ).map(([provider, images]) => (
+                                <div key={provider} className="space-y-3">
+                                  {/* Provider Header */}
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                      <Bot className="w-3 h-3 text-white" />
+                                    </div>
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {PROVIDER_INFO[provider as Provider]
+                                          ?.displayName || provider}
+                                      </h4>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {images.length} image
+                                        {images.length > 1 ? "s" : ""}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Images */}
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {images.map((url, index) => (
+                                      <div
+                                        key={index}
+                                        className="relative group"
+                                      >
+                                        <Image
+                                          src={
+                                            url.startsWith("/api/")
+                                              ? url
+                                              : `/api/images/${url}`
+                                          }
+                                          alt={`Generated by ${provider} - ${
+                                            index + 1
+                                          }`}
+                                          width={200}
+                                          height={200}
+                                          className="w-full aspect-square object-cover rounded-xl border border-gray-200 dark:border-gray-600 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-md hover:shadow-xl"
+                                          onClick={() =>
+                                            window.open(
+                                              url.startsWith("/api/")
+                                                ? url
+                                                : `/api/images/${url}`,
+                                              "_blank"
+                                            )
+                                          }
+                                        />
+
+                                        {/* Edit Button */}
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              startEditingImage(
+                                                message.id,
+                                                url,
+                                                provider
+                                              );
+                                            }}
+                                            className="p-2 bg-black/80 hover:bg-black text-white rounded-lg transition-all duration-200 hover:scale-110 shadow-lg backdrop-blur-sm"
+                                            title="Edit this image"
+                                          >
+                                            <Edit2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Edit Interface */}
+                                  {editingImage &&
+                                    editingImage.provider === provider &&
+                                    editingImage.messageId === message.id && (
+                                      <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <Edit2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Edit with{" "}
+                                            {PROVIDER_INFO[provider as Provider]
+                                              ?.displayName || provider}
+                                          </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <input
+                                            type="text"
+                                            value={editPrompt}
+                                            onChange={(e) =>
+                                              setEditPrompt(e.target.value)
+                                            }
+                                            placeholder="Describe your modifications..."
+                                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            onKeyDown={(e) => {
+                                              if (
+                                                e.key === "Enter" &&
+                                                !e.shiftKey
+                                              ) {
+                                                e.preventDefault();
+                                                handleEditImage(
+                                                  editingImage.imageUrl,
+                                                  provider
+                                                );
+                                              }
+                                              if (e.key === "Escape") {
+                                                cancelEditing();
+                                              }
+                                            }}
+                                            autoFocus
+                                          />
+                                          <button
+                                            onClick={() =>
+                                              handleEditImage(
+                                                editingImage.imageUrl,
+                                                provider
+                                              )
+                                            }
+                                            disabled={
+                                              !editPrompt.trim() || isGenerating
+                                            }
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-1.5 text-sm font-medium shadow-sm"
+                                          >
+                                            {isGenerating ? (
+                                              <Loader className="w-3.5 h-3.5 animate-spin" />
+                                            ) : (
+                                              <Check className="w-3.5 h-3.5" />
+                                            )}
+                                            Edit
+                                          </button>
+                                          <button
+                                            onClick={cancelEditing}
+                                            className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                                          >
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
 
               <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
-            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700">
+            <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700">
               {/* Provider Selection */}
-              <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-0">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    AI Models:
+              <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    AI Models
                   </span>
                   <button
                     onClick={() => setShowModelSelector(true)}
-                    className="text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-md transition-colors flex items-center gap-1"
+                    className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 font-medium"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3.5 h-3.5" />
                     Configure
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {AVAILABLE_PROVIDERS.map((provider) => {
                     const info = PROVIDER_INFO[provider];
                     return (
                       <button
                         key={provider}
                         onClick={() => toggleProvider(provider)}
-                        className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                        className={`px-2.5 py-1 text-xs rounded-full border transition-all duration-200 font-medium ${
                           selectedProviders.includes(provider)
-                            ? "bg-blue-500 text-white border-blue-500"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            ? "bg-blue-500 text-white border-blue-500 shadow-sm"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
                         }`}
                       >
                         {info.displayName}
-                        {info.description && ` (${info.description})`}
                       </button>
                     );
                   })}
@@ -605,8 +825,8 @@ function ChatPageContent() {
               </div>
 
               {/* Message Input */}
-              <div className="p-2">
-                <div className="flex gap-3">
+              <div className="px-4 py-3">
+                <div className="flex gap-2.5">
                   <input
                     type="text"
                     value={input}
@@ -614,12 +834,12 @@ function ChatPageContent() {
                     onKeyDown={handleKeyPress}
                     placeholder="Describe the image you want to generate..."
                     disabled={isGenerating}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="flex-1 px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all duration-200 text-sm"
                   />
                   <button
                     onClick={() => handleSendMessage()}
                     disabled={!input.trim() || isGenerating}
-                    className="px-6 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-lg transition-all duration-200 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl disabled:shadow-none text-sm"
                   >
                     {isGenerating ? (
                       <Loader className="w-4 h-4 animate-spin" />
