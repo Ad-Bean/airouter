@@ -72,7 +72,9 @@ export async function generateWithGoogle(
 
   try {
     const googleAuth = getGoogleAuth();
-    const accessToken = await googleAuth.getAccessToken();
+    const accessToken = process.env.USE_GCLOUD_AUTH
+      ? await googleAuth.getAccessToken()
+      : process.env.GOOGLE_AUTH_ACCESS_TOKEN;
 
     if (!accessToken) {
       throw new Error("Failed to get Google Cloud access token");
