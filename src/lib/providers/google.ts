@@ -23,7 +23,6 @@ let auth: GoogleAuth | null = null;
 
 function getGoogleAuth(): GoogleAuth {
   if (!auth) {
-    // Check for required environment variables
     if (!process.env.GOOGLE_CLOUD_PROJECT) {
       throw new Error("GOOGLE_CLOUD_PROJECT environment variable not set");
     }

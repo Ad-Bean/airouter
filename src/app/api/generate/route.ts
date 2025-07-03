@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
       height = 1024,
       steps = 20,
     } = body;
+    console.log(
+      `Generating image with provider: ${provider}, model: ${model}, size: ${width}x${height}, steps: ${steps}`
+    );
 
     if (!prompt) {
       return NextResponse.json(
@@ -101,6 +104,8 @@ export async function POST(request: NextRequest) {
           model: model || "imagen-4.0-generate-preview-06-06", // Updated to latest model
           sampleCount: 1,
         });
+        console.log("\nGoogle generation result:", result);
+
         break;
 
       default:

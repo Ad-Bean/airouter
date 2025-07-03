@@ -28,7 +28,7 @@ export interface GenerateImageResponse {
 export async function generateImage(
   params: GenerateImageParams
 ): Promise<GenerateImageResponse> {
-  const response = await fetch("/api/generate", {
+  const response = await fetch(`${process.env.NEXTAUTH_URL}/api/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

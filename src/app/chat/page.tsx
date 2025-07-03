@@ -212,7 +212,6 @@ function ChatPageContent() {
     }));
   };
 
-  // Ensure session exists
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (currentSessionId) {
       return currentSessionId;
@@ -223,7 +222,7 @@ function ChatPageContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: "New Chat",
+          title: input.trim().slice(0, 50) || "New Chat",
         }),
       });
 
@@ -241,7 +240,7 @@ function ChatPageContent() {
     }
 
     return null;
-  }, [currentSessionId, router]);
+  }, [currentSessionId, router, input]);
 
   // Handle sending messages - ChatGPT-like flow
   const handleSendMessage = useCallback(
@@ -257,7 +256,6 @@ function ChatPageContent() {
         return;
       }
 
-      // Create and save user message
       const userMessage: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -266,13 +264,11 @@ function ChatPageContent() {
         timestamp: new Date(),
       };
 
-      // Add user message to UI immediately
       setMessages((prev) => [...prev, userMessage]);
       setInput("");
       setIsGenerating(true);
 
       try {
-        // Save user message to backend
         const userResponse = await fetch("/api/chat/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -304,10 +300,8 @@ function ChatPageContent() {
           timestamp: new Date(),
         };
 
-        // Add assistant message to UI
         setMessages((prev) => [...prev, assistantMessage]);
 
-        // Start generation on backend
         const generateResponse = await fetch("/api/chat/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -318,12 +312,11 @@ function ChatPageContent() {
             models: selectedModels,
           }),
         });
+        console.log("Image generation response:", generateResponse);
 
         if (!generateResponse.ok) {
           throw new Error("Failed to start image generation");
         }
-
-        // The polling effect will handle updates
       } catch (error) {
         console.error("Error sending message:", error);
         setErrorMessage(
@@ -465,7 +458,7 @@ function ChatPageContent() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
               {messages.length === 0 && (
-                <div className="text-center py-8">
+                <div className="text-center py-8 mt-24">
                   <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                     Welcome to AI Image Generator Chat
@@ -487,7 +480,7 @@ function ChatPageContent() {
                     {/* Avatar */}
                     <div className="flex-shrink-0">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        className={`w-6 h-6 rounded-full flex items-center justify-center ${
                           message.role === "user"
                             ? "bg-blue-500"
                             : "bg-gray-600 dark:bg-gray-400"
@@ -501,9 +494,7 @@ function ChatPageContent() {
                       </div>
                     </div>
 
-                    {/* Message Content */}
                     <div className="flex-1 min-w-0">
-                      {/* Message text */}
                       {message.content && (
                         <div className="prose dark:prose-invert max-w-none">
                           <p className="text-gray-900 dark:text-gray-100 mb-2">

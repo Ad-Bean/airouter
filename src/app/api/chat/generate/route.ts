@@ -68,9 +68,6 @@ async function generateImagesBackground(
   models: Record<string, string>
 ) {
   try {
-    console.log(`Starting background generation for message ${messageId}`);
-
-    // Generate images from all providers
     const generationPromises = providers.map(async (provider) => {
       try {
         const result = await generateImage({
@@ -81,6 +78,7 @@ async function generateImagesBackground(
           height: 1024,
           steps: 20,
         });
+        console.log(`Generated from ${provider}:`, result);
 
         if (result.success && result.images && result.images.length > 0) {
           // Save images to storage and get URLs
