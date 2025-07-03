@@ -284,10 +284,6 @@ export function ChatSidebar({
             <div className={`space-y-1 p-1 ${isCollapsed ? "px-0.5" : ""}`}>
               {sessions.map((chatSession) => (
                 <div key={chatSession.id} className="group relative">
-                  {/* Active session indicator */}
-                  {selectedSessionId === chatSession.id && !isCollapsed && (
-                    <div className="absolute -left-1 top-0 bottom-0 w-1 bg-blue-600 dark:bg-blue-400 rounded-r-full animate-pulse" />
-                  )}
                   {editingId === chatSession.id ? (
                     // Edit mode
                     !isCollapsed && (
@@ -321,12 +317,12 @@ export function ChatSidebar({
                       </div>
                     )
                   ) : (
-                    // View mode - Make entire container clickable with enhanced current session highlighting
                     <div
-                      className={`flex items-center cursor-pointer transition-all duration-200 rounded-md ${
+                      className={`flex items-center cursor-pointer transition-all duration-200 rounded-md
+                      ${
                         selectedSessionId === chatSession.id
-                          ? "bg-blue-100 dark:bg-blue-900/40 border-l-3 border-blue-600 dark:border-blue-400 shadow-sm"
-                          : "hover:bg-gray-100 dark:hover:bg-gray-700/70 hover:shadow-sm"
+                          ? "bg-blue-100 dark:bg-blue-800"
+                          : "hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}
                       onClick={() => handleSessionClick(chatSession.id)}
                       onKeyDown={(e) => {
@@ -344,7 +340,11 @@ export function ChatSidebar({
                           : `Click to open: ${chatSession.title} • ${chatSession._count.messages} messages`
                       }
                     >
-                      <div className={`flex-1 ${isCollapsed ? "p-2" : "p-2"}`}>
+                      <div
+                        className={`flex-1 p-2 ${
+                          isCollapsed ? "flex justify-center" : ""
+                        }`}
+                      >
                         <div className="flex items-center gap-2">
                           <MessageSquare
                             className={`flex-shrink-0 ${
