@@ -50,13 +50,6 @@ export async function GET() {
         }),
       ]);
 
-    console.log("Dashboard stats - Query results:", {
-      totalImages,
-      favoriteImages,
-      recentImages,
-      providerStats,
-    });
-
     // Get recent images for dashboard preview
     const recentImagesList = await prisma.generatedImage.findMany({
       where: { userId },
@@ -77,11 +70,6 @@ export async function GET() {
       take: 6,
     });
 
-    console.log(
-      "Dashboard stats - Recent images found:",
-      recentImagesList.length
-    );
-
     const response = {
       totalImages,
       favoriteImages,
@@ -99,7 +87,6 @@ export async function GET() {
       recentImagesList,
     };
 
-    console.log("Dashboard stats - Final response:", response);
     return NextResponse.json(response);
   } catch (error) {
     console.error("Dashboard stats error:", error);

@@ -238,22 +238,6 @@ async function generateImagesBackground(
         },
       });
     });
-
-    // Update session timestamp
-    const message = await prisma.chatMessage.findUnique({
-      where: { id: messageId },
-    });
-
-    if (message) {
-      await prisma.chatSession.update({
-        where: { id: messageId },
-        data: { updatedAt: new Date() },
-      });
-    }
-
-    console.log(
-      `Completed generation for message ${messageId}, generated ${allImageUrls.length} images`
-    );
   } catch (error) {
     console.error(
       `Error in background generation for message ${messageId}:`,
