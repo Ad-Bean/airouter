@@ -125,6 +125,8 @@ export async function generateWithGoogle(
 
     const data = await response.json();
 
+    console.log("\n\nGoogle Vertex AI response:", data);
+    
     if (!data.predictions || !Array.isArray(data.predictions)) {
       throw new Error("Invalid response format from Google Vertex AI API");
     }

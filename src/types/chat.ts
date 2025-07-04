@@ -10,6 +10,7 @@ export interface Message {
     models?: Record<string, string>;
     imageCount?: Record<string, number>;
     prompt?: string;
+    imageProviderMap?: Record<string, string>;
   };
   timestamp: Date;
 }

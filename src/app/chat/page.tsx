@@ -407,40 +407,50 @@ function ChatPageContent() {
     setEditPrompt("");
   };
 
-  const cancelEditing = () => {
-    setEditingImage(null);
-    setEditPrompt("");
-  };
-
   // Group images by provider for each message
   const groupImagesByProvider = (message: Message) => {
     if (!message.imageUrls || !message.metadata?.providers) return {};
 
     const providers = message.metadata.providers as string[];
+    const imageProviderMap = message.metadata.imageProviderMap as Record<string, string>;
     const imageGroups: Record<string, string[]> = {};
 
-    // Assuming images are returned in the same order as providers
-    // Each provider typically returns 1-2 images
-    let imageIndex = 0;
+    // Initialize empty arrays for all providers
     providers.forEach((provider) => {
-      const imagesPerProvider = Math.floor(
-        message.imageUrls!.length / providers.length
-      );
-      const remainingImages = message.imageUrls!.length % providers.length;
-      const currentProviderImages =
-        imagesPerProvider + (imageIndex < remainingImages ? 1 : 0);
-
-      const providerImages = message.imageUrls!.slice(
-        imageIndex,
-        imageIndex + currentProviderImages
-      );
-
-      if (providerImages.length > 0) {
-        imageGroups[provider] = providerImages;
-      }
-
-      imageIndex += currentProviderImages;
+      imageGroups[provider] = [];
     });
+
+    // If we have a provider map, use it to group images correctly
+    if (imageProviderMap && typeof imageProviderMap === 'object') {
+      message.imageUrls.forEach((imageUrl) => {
+        const provider = imageProviderMap[imageUrl];
+        if (provider && imageGroups[provider]) {
+          imageGroups[provider].push(imageUrl);
+        }
+      });
+    } else {
+      // Fallback to old logic if imageProviderMap is not available
+      let imageIndex = 0;
+      providers.forEach((provider) => {
+        const imagesPerProvider = Math.floor(
+          message.imageUrls!.length / providers.length
+        );
+        const remainingImages = message.imageUrls!.length % providers.length;
+        const currentProviderImages =
+          imagesPerProvider + (imageIndex < remainingImages ? 1 : 0);
+
+        const providerImages = message.imageUrls!.slice(
+          imageIndex,
+          imageIndex + currentProviderImages
+        );
+
+        if (providerImages.length > 0) {
+          imageGroups[provider] = providerImages;
+        }
+
+        imageIndex += currentProviderImages;
+      });
+    }
 
     return imageGroups;
   };
@@ -688,7 +698,9 @@ function ChatPageContent() {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                               {Object.entries(
                                 groupImagesByProvider(message)
-                              ).map(([provider, images]) => (
+                              )
+                                .filter(([, images]) => images.length > 0) // Filter out providers with no images
+                                .map(([provider, images]) => (
                                 <div key={provider} className="space-y-3">
                                   {/* Provider Header */}
                                   <div className="flex items-center gap-2">
@@ -765,83 +777,78 @@ function ChatPageContent() {
                                                 provider
                                               );
                                             }}
-                                            className="p-2 bg-black/80 hover:bg-black text-white rounded-lg transition-all duration-200 hover:scale-110 shadow-lg backdrop-blur-sm"
+                                            className="p-1.5 bg-black/80 hover:bg-black text-white rounded-lg transition-all duration-200 hover:scale-110 shadow-lg backdrop-blur-sm"
                                             title="Edit this image"
                                           >
-                                            <Edit2 className="w-4 h-4" />
+                                            <Edit2 className="w-3.5 h-3.5" />
                                           </button>
                                         </div>
                                       </div>
                                     ))}
                                   </div>
 
-                                  {/* Edit Interface */}
-                                  {editingImage &&
-                                    editingImage.provider === provider &&
-                                    editingImage.messageId === message.id && (
-                                      <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <Edit2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Edit with{" "}
-                                            {PROVIDER_INFO[provider as Provider]
-                                              ?.displayName || provider}
-                                          </span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                          <input
-                                            type="text"
-                                            value={editPrompt}
-                                            onChange={(e) =>
-                                              setEditPrompt(e.target.value)
+                                  {/* Always Visible Edit Interface */}
+                                  <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <Edit2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                        Edit with {PROVIDER_INFO[provider as Provider]?.displayName || provider}
+                                      </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        value={editingImage?.provider === provider && editingImage?.messageId === message.id ? editPrompt : ""}
+                                        onChange={(e) => {
+                                          if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
+                                            setEditPrompt(e.target.value);
+                                          }
+                                        }}
+                                        placeholder="Describe your modifications..."
+                                        className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
+                                              handleEditImage(editingImage.imageUrl, provider);
+                                            } else if (images.length > 0) {
+                                              setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
+                                              setEditPrompt(e.currentTarget.value);
+                                              handleEditImage(images[0], provider);
                                             }
-                                            placeholder="Describe your modifications..."
-                                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                            onKeyDown={(e) => {
-                                              if (
-                                                e.key === "Enter" &&
-                                                !e.shiftKey
-                                              ) {
-                                                e.preventDefault();
-                                                handleEditImage(
-                                                  editingImage.imageUrl,
-                                                  provider
-                                                );
-                                              }
-                                              if (e.key === "Escape") {
-                                                cancelEditing();
-                                              }
-                                            }}
-                                            autoFocus
-                                          />
-                                          <button
-                                            onClick={() =>
-                                              handleEditImage(
-                                                editingImage.imageUrl,
-                                                provider
-                                              )
+                                          }
+                                        }}
+                                        onFocus={() => {
+                                          if (images.length > 0) {
+                                            setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
+                                          }
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => {
+                                          if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
+                                            handleEditImage(editingImage.imageUrl, provider);
+                                          } else if (images.length > 0) {
+                                            const inputElement = document.querySelector(`input[placeholder="Describe your modifications..."]`) as HTMLInputElement;
+                                            if (inputElement && inputElement.value.trim()) {
+                                              setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
+                                              setEditPrompt(inputElement.value);
+                                              handleEditImage(images[0], provider);
                                             }
-                                            disabled={
-                                              !editPrompt.trim() || isGenerating
-                                            }
-                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors disabled:cursor-not-allowed flex items-center gap-1.5 text-sm font-medium shadow-sm"
-                                          >
-                                            {isGenerating ? (
-                                              <Loader className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                              <Check className="w-3.5 h-3.5" />
-                                            )}
-                                            Edit
-                                          </button>
-                                          <button
-                                            onClick={cancelEditing}
-                                            className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                                          >
-                                            <X className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
+                                          }
+                                        }}
+                                        disabled={isGenerating}
+                                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-1 text-xs font-medium shadow-sm"
+                                      >
+                                        {isGenerating && editingImage?.provider === provider && editingImage?.messageId === message.id ? (
+                                          <Loader className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                        Edit
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                             </div>

@@ -243,10 +243,15 @@ async function generateImagesBackground(
     // Wait for all generations to complete
     const results = await Promise.allSettled(generationPromises);
     const allImageUrls: string[] = [];
+    const imageProviderMap: Record<string, string> = {};
 
-    results.forEach((result) => {
+    results.forEach((result, index) => {
       if (result.status === "fulfilled") {
-        allImageUrls.push(...result.value);
+        const provider = providers[index];
+        result.value.forEach((imageUrl) => {
+          allImageUrls.push(imageUrl);
+          imageProviderMap[imageUrl] = provider;
+        });
       }
     });
 
@@ -257,6 +262,13 @@ async function generateImagesBackground(
         data: {
           status: allImageUrls.length > 0 ? "completed" : "failed",
           imageUrls: allImageUrls,
+          metadata: {
+            providers,
+            models,
+            imageCount,
+            prompt,
+            imageProviderMap,
+          },
           updatedAt: new Date(),
         },
       });
