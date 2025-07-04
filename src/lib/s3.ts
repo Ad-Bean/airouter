@@ -28,10 +28,12 @@ export interface UploadImageResult {
   key: string;
   url: string;
   bucket: string;
+  signedUrl: string;
+  expiresAt: Date;
 }
 
 /**
- * Upload an image to S3
+ * Upload an image to S3 with secure access
  */
 export async function uploadImageToS3({
   buffer,
@@ -48,8 +50,8 @@ export async function uploadImageToS3({
     Key: key,
     Body: buffer,
     ContentType: mimeType,
-    // Make images publicly readable
-    // ACL: "public-read" as const,
+    // Private by default - no public access
+    ServerSideEncryption: "AES256" as const,
     // Add metadata
     Metadata: {
       userId,
@@ -61,15 +63,25 @@ export async function uploadImageToS3({
     const command = new PutObjectCommand(uploadParams);
     await s3Client.send(command);
 
-    // Construct the public URL
-    const url = `https://${BUCKET_NAME}.s3.${
-      process.env.AWS_REGION || "us-east-1"
-    }.amazonaws.com/${key}`;
+    // Generate signed URL for secure access (24 hours)
+    const signedUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+      }),
+      { expiresIn: 24 * 60 * 60 } // 24 hours
+    );
+
+    // Calculate expiration date
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     return {
       key,
-      url,
+      url: signedUrl, // Return signed URL instead of public URL
       bucket: BUCKET_NAME,
+      signedUrl,
+      expiresAt,
     };
   } catch (error) {
     console.error("Error uploading to S3:", error);
@@ -82,7 +94,7 @@ export async function uploadImageToS3({
 }
 
 /**
- * Generate a presigned URL for private access (if needed)
+ * Generate a presigned URL for private access with custom expiration
  */
 export async function getPresignedUrl(
   key: string,
@@ -94,6 +106,19 @@ export async function getPresignedUrl(
   });
 
   return await getSignedUrl(s3Client, command, { expiresIn });
+}
+
+/**
+ * Refresh signed URL for an image
+ */
+export async function refreshSignedUrl(
+  key: string,
+  expiresIn: number = 24 * 60 * 60 // 24 hours default
+): Promise<{ signedUrl: string; expiresAt: Date }> {
+  const signedUrl = await getPresignedUrl(key, expiresIn);
+  const expiresAt = new Date(Date.now() + expiresIn * 1000);
+  
+  return { signedUrl, expiresAt };
 }
 
 /**
@@ -151,4 +176,24 @@ export function getS3Config() {
       process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
     ),
   };
+}
+
+/**
+ * Batch delete multiple objects from S3
+ */
+export async function batchDeleteFromS3(keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+  
+  // S3 batch delete can handle up to 1000 objects at once
+  const batchSize = 1000;
+  const batches = [];
+  
+  for (let i = 0; i < keys.length; i += batchSize) {
+    batches.push(keys.slice(i, i + batchSize));
+  }
+  
+  for (const batch of batches) {
+    const deletePromises = batch.map(key => deleteFromS3(key));
+    await Promise.all(deletePromises);
+  }
 }

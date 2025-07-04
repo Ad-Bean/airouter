@@ -60,7 +60,10 @@ export async function GET() {
 
     // Get recent images for dashboard preview
     const recentImagesList = await prisma.generatedImage.findMany({
-      where: { userId },
+      where: { 
+        userId,
+        deleted: false,
+      },
       select: {
         id: true,
         prompt: true,
@@ -70,6 +73,7 @@ export async function GET() {
         s3Url: true,
         s3Key: true,
         s3Bucket: true,
+        expiresAt: true,
         // Legacy storage fields
         imageUrl: true,
         imagePath: true,

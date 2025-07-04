@@ -7,6 +7,16 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/purge-images",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-urls",
+      "schedule": "0 */6 * * *"
+    }
+  ],
   "env": {
     "NODE_ENV": "production"
   }

@@ -124,6 +124,8 @@ export async function POST(request: NextRequest) {
           key: `mock/${filename}`,
           url: `/api/images/mock/${filename}`,
           bucket: "development-bucket",
+          signedUrl: `/api/images/mock/${filename}`,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         };
       } else {
         s3Result = await uploadImageToS3({
@@ -141,6 +143,8 @@ export async function POST(request: NextRequest) {
         key: `mock/${filename}`,
         url: `/api/images/mock/${filename}`,
         bucket: "development-bucket",
+        signedUrl: `/api/images/mock/${filename}`,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       };
     }
 
@@ -174,13 +178,27 @@ export async function POST(request: NextRequest) {
 
     // Save to database with retry logic
     const savedImage = await withDatabaseRetry(async () => {
+      // Set auto-delete based on user plan
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true },
+      });
+      
+      let autoDeleteAt = null;
+      if (user?.plan === 'free') {
+        // Free plan: auto-delete after 7 days
+        autoDeleteAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      }
+      
       return await prisma.generatedImage.create({
         data: {
           userId: userId,
           prompt: prompt.trim(),
           s3Key: s3Result.key,
-          s3Url: s3Result.url,
+          s3Url: s3Result.signedUrl,
           s3Bucket: s3Result.bucket,
+          expiresAt: s3Result.expiresAt,
+          autoDeleteAt,
           mimeType: mimeType,
           filename: filename,
           provider,

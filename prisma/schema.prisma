@@ -126,6 +126,7 @@ model GeneratedImage {
   deleted         Boolean  @default(false) // Soft delete flag (for free plan auto-deletion)
   deletedAt       DateTime? // When the image was marked for deletion
   autoDeleteAt    DateTime? // When the image should be auto-deleted (free plan: 7 days)
+  expiresAt       DateTime? // For signed URL expiration
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

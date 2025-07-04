@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { refreshSignedUrl } from "@/lib/s3";
 
 export async function GET(
   request: NextRequest,
@@ -8,6 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
 
     let image;
     try {
@@ -17,12 +20,14 @@ export async function GET(
           s3Url: true,
           s3Key: true,
           s3Bucket: true,
+          expiresAt: true,
           imagePath: true,
           mimeType: true,
           filename: true,
           imageUrl: true,
           isPublic: true,
           userId: true,
+          deleted: true,
         },
       });
     } catch (dbError) {
@@ -52,64 +57,46 @@ export async function GET(
       });
     }
 
-    if (!image) {
+    if (!image || image.deleted) {
       return NextResponse.json({ error: "Image not found" }, { status: 404 });
     }
 
-    // Priority 1: S3 URL (proxy through our API for proper auth)
+    // Check authorization (unless image is public)
+    if (!image.isPublic) {
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      
+      // Check if user owns the image
+      if (session.user.id !== image.userId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    // Priority 1: S3 signed URL (secure access)
     if (image.s3Key && image.s3Bucket) {
       try {
-        // Initialize S3 client with credentials
-        const s3Client = new S3Client({
-          region: process.env.AWS_REGION || "us-east-1",
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-          },
-        });
-
-        const command = new GetObjectCommand({
-          Bucket: image.s3Bucket,
-          Key: image.s3Key,
-        });
-
-        const response = await s3Client.send(command);
-
-        if (response.Body) {
-          const headers = new Headers();
-          headers.set("Content-Type", image.mimeType || "image/png");
-          headers.set("Cache-Control", "public, max-age=31536000, immutable");
-
-          if (image.filename) {
-            headers.set(
-              "Content-Disposition",
-              `inline; filename="${image.filename}"`
-            );
-          }
-
-          // Convert the S3 response stream to buffer
-          const streamToBuffer = async (
-            stream: NodeJS.ReadableStream
-          ): Promise<Buffer> => {
-            const chunks: Uint8Array[] = [];
-            return new Promise((resolve, reject) => {
-              stream.on("data", (chunk: Uint8Array) => chunks.push(chunk));
-              stream.on("error", reject);
-              stream.on("end", () => resolve(Buffer.concat(chunks)));
-            });
-          };
-
-          const imageBuffer = await streamToBuffer(
-            response.Body as NodeJS.ReadableStream
-          );
-
-          return new NextResponse(new Uint8Array(imageBuffer), {
-            status: 200,
-            headers,
+        let signedUrl = image.s3Url;
+        
+        // Check if signed URL needs refresh
+        if (!signedUrl || !image.expiresAt || image.expiresAt <= new Date()) {
+          const refreshResult = await refreshSignedUrl(image.s3Key);
+          signedUrl = refreshResult.signedUrl;
+          
+          // Update database with new signed URL
+          await prisma.generatedImage.update({
+            where: { id },
+            data: {
+              s3Url: signedUrl,
+              expiresAt: refreshResult.expiresAt,
+            },
           });
         }
+
+        // Redirect to signed URL for direct access
+        return NextResponse.redirect(signedUrl);
       } catch (s3Error) {
-        console.error("Error fetching from S3:", s3Error);
+        console.error("Error with S3 signed URL:", s3Error);
         // Continue to fallback methods
       }
     }
