@@ -47,6 +47,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?   // For email/password auth
+  plan          String    @default("free") // "free", "pro", "enterprise"
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -122,6 +123,9 @@ model GeneratedImage {
   steps           Int?     @default(20)
   isFavorite      Boolean  @default(false)
   isPublic        Boolean  @default(false)
+  deleted         Boolean  @default(false) // Soft delete flag (for free plan auto-deletion)
+  deletedAt       DateTime? // When the image was marked for deletion
+  autoDeleteAt    DateTime? // When the image should be auto-deleted (free plan: 7 days)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

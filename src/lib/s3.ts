@@ -119,6 +119,28 @@ export async function deleteImageFromS3(key: string): Promise<void> {
 }
 
 /**
+ * Delete an object from S3 by key and bucket
+ */
+export async function deleteFromS3(key: string, bucket?: string): Promise<void> {
+  const deleteParams = {
+    Bucket: bucket || BUCKET_NAME,
+    Key: key,
+  };
+
+  try {
+    const command = new DeleteObjectCommand(deleteParams);
+    await s3Client.send(command);
+  } catch (error) {
+    console.error("Error deleting from S3:", error);
+    throw new Error(
+      `Failed to delete object from S3: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
+/**
  * Get S3 configuration status for debugging
  */
 export function getS3Config() {

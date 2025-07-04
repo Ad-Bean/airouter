@@ -66,27 +66,41 @@ async function saveImageToDatabase({
       console.error("Failed to upload to S3:", s3Error);
     }
 
-    // Save to database
-    const savedImage = await withDatabaseRetry(async () => {
-      return await prisma.generatedImage.create({
-        data: {
-          userId,
-          prompt: prompt.trim(),
-          s3Url,
-          s3Key,
-          s3Bucket,
-          mimeType,
-          filename,
-          provider,
-          model: model || "default",
-          width: width || 1024,
-          height: height || 1024,
-          steps: steps || 20,
-          isFavorite: false,
-          isPublic: false,
-        },
-      });
+  // Save to database
+  const savedImage = await withDatabaseRetry(async () => {
+    // Get user plan to determine auto-delete behavior
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
     });
+
+    const userPlan = user?.plan || "free";
+    
+    // Calculate auto-delete date for free plan users (7 days)
+    const autoDeleteAt = userPlan === "free" 
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+      : null;
+
+    return await prisma.generatedImage.create({
+      data: {
+        userId,
+        prompt: prompt.trim(),
+        s3Url,
+        s3Key,
+        s3Bucket,
+        mimeType,
+        filename,
+        provider,
+        model: model || "default",
+        width: width || 1024,
+        height: height || 1024,
+        steps: steps || 20,
+        isFavorite: false,
+        isPublic: false,
+        autoDeleteAt,
+      },
+    });
+  });
 
     return {
       image: savedImage,

@@ -22,19 +22,24 @@ export async function GET() {
     const [totalImages, favoriteImages, recentImages, providerStats] =
       await Promise.all([
         prisma.generatedImage.count({
-          where: { userId },
-        }),
-
-        prisma.generatedImage.count({
-          where: {
+          where: { 
             userId,
-            isFavorite: true,
+            deleted: false,
           },
         }),
 
         prisma.generatedImage.count({
           where: {
             userId,
+            isFavorite: true,
+            deleted: false,
+          },
+        }),
+
+        prisma.generatedImage.count({
+          where: {
+            userId,
+            deleted: false,
             createdAt: {
               gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
             },
@@ -43,7 +48,10 @@ export async function GET() {
 
         prisma.generatedImage.groupBy({
           by: ["provider"],
-          where: { userId },
+          where: { 
+            userId,
+            deleted: false,
+          },
           _count: {
             id: true,
           },

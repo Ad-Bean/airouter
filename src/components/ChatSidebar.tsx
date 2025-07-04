@@ -112,11 +112,11 @@ export function ChatSidebar({
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this chat?")) {
       try {
-        const response = await fetch(`/api/chat/sessions/${sessionId}`, {
+        const response = await fetch(`/api/chat/sessions/${sessionId}/delete`, {
           method: "DELETE",
         });
         if (response.ok) {
-          setSessions(sessions.filter((s) => s.id !== sessionId));
+          setSessions(sessions.filter(s => s.id !== sessionId));
           if (currentSessionId === sessionId) {
             router.push("/chat");
           }
@@ -242,12 +242,14 @@ export function ChatSidebar({
             </div>
           )}
 
-          {/* Chats title */}
+          {/* Chats title and toggle */}
           {!isCollapsed && (
             <div className="px-2 pb-2 mt-4">
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Chats
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Chats
+                </h2>
+              </div>
             </div>
           )}
         </div>
@@ -337,7 +339,7 @@ export function ChatSidebar({
                       title={
                         isCollapsed
                           ? chatSession.title
-                          : `Click to open: ${chatSession.title} • ${chatSession._count.messages} messages`
+                          : `${chatSession.title} • ${chatSession._count.messages} messages`
                       }
                     >
                       <div
