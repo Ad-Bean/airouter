@@ -38,6 +38,12 @@ export function ChatNavigation({
           >
             Dashboard
           </Link>
+          <Link
+            href="/billing"
+            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+          >
+            Billing
+          </Link>
           <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
           <button
             onClick={onToggleTheme}
@@ -96,6 +102,13 @@ export function ChatNavigation({
                   >
                     My Images
                   </Link>
+                  <Link
+                    href="/billing"
+                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    Billing
+                  </Link>
                   <button
                     onClick={() => {
                       signOut();
@@ -142,12 +155,20 @@ export function ChatNavigation({
           </button>
 
           {session ? (
-            <Link
-              href="/dashboard"
-              className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <User className="w-4 h-4" />
-            </Link>
+            <>
+              <Link
+                href="/dashboard"
+                className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <User className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/billing"
+                className="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Billing
+              </Link>
+            </>
           ) : (
             <button
               onClick={onShowLogin}

@@ -47,7 +47,9 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?   // For email/password auth
-  plan          String    @default("free") // "free", "pro", "enterprise"
+  userType      String    @default("free") // "free", "paid"
+  credits       Int       @default(10) // Available credits (10 free credits for new users)
+  stripeCustomerId String? // Stripe customer ID for payments
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -55,6 +57,7 @@ model User {
   sessions      Session[]
   images        GeneratedImage[]
   chatSessions  ChatSession[]
+  transactions  Transaction[]
 
   @@map("users")
 }
@@ -133,4 +136,20 @@ model GeneratedImage {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("generated_images")
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String   // "purchase", "usage", "refund", "bonus", "auto_topup"
+  amount        Int      // Credits amount (positive for credits added, negative for credits used)
+  balanceAfter  Int      // User's credit balance after this transaction
+  description   String?  // Transaction description
+  metadata      Json?    // Additional data (provider, model, etc.)
+  stripePaymentId String? // Stripe payment intent ID
+  createdAt     DateTime @default(now())
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("transactions")
 }

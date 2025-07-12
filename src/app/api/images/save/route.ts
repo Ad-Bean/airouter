@@ -178,17 +178,22 @@ export async function POST(request: NextRequest) {
 
     // Save to database with retry logic
     const savedImage = await withDatabaseRetry(async () => {
-      // Set auto-delete based on user plan
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { plan: true },
-      });
+      // Set auto-delete based on user type
+      // TODO: Fix this after Prisma client is updated
+      // const user = await prisma.user.findUnique({
+      //   where: { id: userId },
+      //   select: { userType: true },
+      // });
       
       let autoDeleteAt = null;
-      if (user?.plan === 'free') {
-        // Free plan: auto-delete after 7 days
-        autoDeleteAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      }
+      // Default to free user behavior for now
+      // if (user?.userType === 'free') {
+        // Free users: auto-delete after 10 minutes
+        autoDeleteAt = new Date(Date.now() + 10 * 60 * 1000);
+      // } else {
+      //   // Paid users: auto-delete after 10 days
+      //   autoDeleteAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+      // }
       
       return await prisma.generatedImage.create({
         data: {

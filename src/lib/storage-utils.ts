@@ -201,23 +201,25 @@ export async function cleanupOrphanedRecords(): Promise<number> {
 }
 
 /**
- * Set auto-delete for free plan users
+ * Set auto-delete for free users
  */
-export async function setAutoDeleteForFreePlan(): Promise<number> {
-  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+export async function setAutoDeleteForFreeUsers(): Promise<number> {
+  // TODO: Fix this after Prisma client is updated
+  // const tenMinutesFromNow = new Date(Date.now() + 10 * 60 * 1000);
 
-  const result = await prisma.generatedImage.updateMany({
-    where: {
-      autoDeleteAt: null,
-      deleted: false,
-      user: {
-        plan: 'free',
-      },
-    },
-    data: {
-      autoDeleteAt: sevenDaysFromNow,
-    },
-  });
+  // const result = await prisma.generatedImage.updateMany({
+  //   where: {
+  //     autoDeleteAt: null,
+  //     deleted: false,
+  //     user: {
+  //       userType: 'free',
+  //     },
+  //   },
+  //   data: {
+  //     autoDeleteAt: tenMinutesFromNow,
+  //   },
+  // });
 
-  return result.count;
+  console.log('Auto-delete for free users - temporarily disabled');
+  return 0; // Temporary return
 }

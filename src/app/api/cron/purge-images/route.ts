@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { bulkDeleteExpiredImages, cleanupOrphanedRecords, setAutoDeleteForFreePlan } from '@/lib/storage-utils';
+import { bulkDeleteExpiredImages, cleanupOrphanedRecords, setAutoDeleteForFreeUsers } from '@/lib/storage-utils';
 
 export async function GET(request: Request) {
   try {
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Set auto-delete for free plan users first
-    const autoDeleteCount = await setAutoDeleteForFreePlan();
+    // Set auto-delete for free users first
+    const autoDeleteCount = await setAutoDeleteForFreeUsers();
     
     // Delete expired images
     const deleteResult = await bulkDeleteExpiredImages();
