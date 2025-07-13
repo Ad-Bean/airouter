@@ -14,11 +14,14 @@ import {
   X,
   Edit2,
   Check,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
 import { ChatNavigation } from "@/components/ChatNavigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ModelSelectorModal } from "@/components/ModelSelectorModal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { type Message } from "@/types/chat";
 import {
   AVAILABLE_PROVIDERS,
@@ -258,7 +261,6 @@ function ChatPageContent() {
     return null;
   }, [currentSessionId, router, input]);
 
-  // Handle sending messages - ChatGPT-like flow
   const handleSendMessage = useCallback(
     async (messageText?: string, providers?: Provider[]) => {
       const text = messageText || input.trim();
@@ -266,6 +268,7 @@ function ChatPageContent() {
 
       setErrorMessage(null);
       const sessionId = await ensureSession();
+      
       if (!sessionId) {
         setErrorMessage("Failed to create chat session. Please try again.");
         setTimeout(() => setErrorMessage(null), 5000);
@@ -330,7 +333,6 @@ function ChatPageContent() {
             imageCount,
           }),
         });
-        console.log("Image generation response:", generateResponse);
 
         if (!generateResponse.ok) {
           throw new Error("Failed to start image generation");
@@ -706,167 +708,196 @@ function ChatPageContent() {
                         )}
 
                         {/* Images Grid */}
-                        {message.imageUrls && message.imageUrls.length > 0 && (
-                          <div className="p-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                              {Object.entries(
-                                groupImagesByProvider(message)
-                              )
-                                .filter(([, images]) => images.length > 0) // Filter out providers with no images
-                                .map(([provider, images]) => (
-                                <div key={provider} className="space-y-3">
-                                  {/* Provider Header */}
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                      <Bot className="w-3 h-3 text-white" />
-                                    </div>
-                                    <div>
-                                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                        {PROVIDER_INFO[provider as Provider]
-                                          ?.displayName || provider}
-                                        {models?.[provider] && (
-                                          <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
-                                            (
-                                            {PROVIDER_CONFIGS[
-                                              provider as Provider
-                                            ]?.models.find(
-                                              (m) => m.id === models[provider]
-                                            )?.name || models[provider]}
-                                            )
-                                          </span>
-                                        )}
-                                      </h4>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        {images.length} image
-                                        {images.length > 1 ? "s" : ""}
-                                        {messageImageCount?.[provider] &&
-                                          messageImageCount[provider] > 1 && (
-                                            <span className="ml-1">
-                                              (requested{" "}
-                                              {messageImageCount[provider]})
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {Object.entries(groupImagesByProvider(message))
+                              .map(([provider, images]) => {
+                                const expectedCount = messageImageCount?.[provider] || 1;
+                                const isGenerating = message.status === "generating";
+                                const providerErrors = message.metadata?.providerErrors as Record<string, string> || {};
+                                const hasProviderError = providerErrors[provider];
+                                
+                                return (
+                                  <div key={provider} className="space-y-3">
+                                    {/* Provider Header */}
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                        <Bot className="w-3 h-3 text-white" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                          {PROVIDER_INFO[provider as Provider]?.displayName || provider}
+                                          {models?.[provider] && (
+                                            <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                              ({PROVIDER_CONFIGS[provider as Provider]?.models.find(m => m.id === models[provider])?.name || models[provider]})
                                             </span>
                                           )}
-                                      </p>
+                                        </h4>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                          {hasProviderError ? (
+                                            <span className="text-red-500 dark:text-red-400 flex items-center gap-1">
+                                              <AlertCircle className="w-3 h-3" />
+                                              Failed to generate
+                                            </span>
+                                          ) : isGenerating ? (
+                                            <span className="text-blue-500 dark:text-blue-400 flex items-center gap-1">
+                                              <Loader className="w-3 h-3 animate-spin" />
+                                              Generating {expectedCount} image{expectedCount > 1 ? "s" : ""}...
+                                            </span>
+                                          ) : (
+                                            <>
+                                              {images.length} image{images.length > 1 ? "s" : ""}
+                                              {expectedCount > 1 && (
+                                                <span className="ml-1">(requested {expectedCount})</span>
+                                              )}
+                                            </>
+                                          )}
+                                        </p>
+                                      </div>
                                     </div>
-                                  </div>
 
-                                  {/* Images */}
-                                  <div className="grid grid-cols-2 gap-3">
-                                    {images.map((url, index) => (
-                                      <div
-                                        key={index}
-                                        className="relative group"
-                                      >
-                                        <Image
-                                          src={
-                                            url.startsWith("/api/")
-                                              ? url
-                                              : `/api/images/${url}`
-                                          }
-                                          alt={`Generated by ${provider} - ${
-                                            index + 1
-                                          }`}
-                                          width={200}
-                                          height={200}
-                                          className="w-full aspect-square object-cover rounded-xl border border-gray-200 dark:border-gray-600 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-md hover:shadow-xl"
-                                          onClick={() =>
-                                            window.open(
-                                              url.startsWith("/api/")
-                                                ? url
-                                                : `/api/images/${url}`,
-                                              "_blank"
-                                            )
-                                          }
-                                        />
-
-                                        {/* Edit Button */}
-                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                    {/* Images/Loading/Error */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {/* Show actual images */}
+                                      {images.map((url, index) => (
+                                        <div key={index} className="relative group">
+                                          <Image
+                                            src={url.startsWith("/api/") ? url : `/api/images/${url}`}
+                                            alt={`Generated by ${provider} - ${index + 1}`}
+                                            width={200}
+                                            height={200}
+                                            className="w-full aspect-square object-cover rounded-xl border border-gray-200 dark:border-gray-600 hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-md hover:shadow-xl"
+                                            onClick={() => window.open(url.startsWith("/api/") ? url : `/api/images/${url}`, "_blank")}
+                                          />
+                                          {/* Edit Button */}
+                                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                startEditingImage(message.id, url, provider);
+                                              }}
+                                              className="p-1.5 bg-black/80 hover:bg-black text-white rounded-lg transition-all duration-200 hover:scale-110 shadow-lg backdrop-blur-sm"
+                                              title="Edit this image"
+                                            >
+                                              <Edit2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      
+                                      {/* Show loading skeletons for remaining images */}
+                                      {isGenerating && Array.from({ length: Math.max(0, expectedCount - images.length) }).map((_, index) => (
+                                        <div key={`loading-${index}`} className="relative">
+                                          <Skeleton className="w-full aspect-square rounded-xl" />
+                                          <div className="absolute inset-0 flex items-center justify-center">
+                                            <Loader className="w-6 h-6 animate-spin text-gray-400" />
+                                          </div>
+                                        </div>
+                                      ))}
+                                      
+                                      {/* Show error placeholders for failed images */}
+                                      {hasProviderError && !isGenerating && images.length === 0 && (
+                                        <div className="col-span-2 flex flex-col items-center justify-center p-6 border-2 border-dashed border-red-200 dark:border-red-800 rounded-xl bg-red-50 dark:bg-red-900/10">
+                                          <AlertCircle className="w-8 h-8 text-red-500 dark:text-red-400 mb-2" />
+                                          <p className="text-sm text-red-600 dark:text-red-400 text-center mb-2">
+                                            {hasProviderError}
+                                          </p>
                                           <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              startEditingImage(
-                                                message.id,
-                                                url,
-                                                provider
-                                              );
+                                            onClick={() => {
+                                              if (prompt) {
+                                                handleSendMessage(prompt, [provider as Provider]);
+                                              }
                                             }}
-                                            className="p-1.5 bg-black/80 hover:bg-black text-white rounded-lg transition-all duration-200 hover:scale-110 shadow-lg backdrop-blur-sm"
-                                            title="Edit this image"
+                                            className="text-xs bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
                                           >
-                                            <Edit2 className="w-3.5 h-3.5" />
+                                            <RefreshCw className="w-3 h-3" />
+                                            Retry
+                                          </button>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Show partial error for when some images failed */}
+                                      {hasProviderError && !isGenerating && images.length > 0 && images.length < expectedCount && (
+                                        Array.from({ length: expectedCount - images.length }).map((_, index) => (
+                                          <div key={`error-${index}`} className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-red-200 dark:border-red-800 rounded-xl bg-red-50 dark:bg-red-900/10 aspect-square">
+                                            <AlertCircle className="w-6 h-6 text-red-500 dark:text-red-400 mb-1" />
+                                            <p className="text-xs text-red-600 dark:text-red-400 text-center">
+                                              Failed
+                                            </p>
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+
+                                    {/* Always Visible Edit Interface */}
+                                    {images.length > 0 && (
+                                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                          <Edit2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                            Edit with {PROVIDER_INFO[provider as Provider]?.displayName || provider}
+                                          </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <input
+                                            type="text"
+                                            value={editingImage?.provider === provider && editingImage?.messageId === message.id ? editPrompt : ""}
+                                            onChange={(e) => {
+                                              if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
+                                                setEditPrompt(e.target.value);
+                                              }
+                                            }}
+                                            placeholder="Describe your modifications..."
+                                            className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
+                                                  handleEditImage(editingImage.imageUrl, provider);
+                                                } else if (images.length > 0) {
+                                                  setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
+                                                  setEditPrompt(e.currentTarget.value);
+                                                  handleEditImage(images[0], provider);
+                                                }
+                                              }
+                                            }}
+                                            onFocus={() => {
+                                              if (images.length > 0) {
+                                                setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
+                                              }
+                                            }}
+                                          />
+                                          <button
+                                            onClick={() => {
+                                              if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
+                                                handleEditImage(editingImage.imageUrl, provider);
+                                              } else if (images.length > 0) {
+                                                const inputElement = document.querySelector(`input[placeholder="Describe your modifications..."]`) as HTMLInputElement;
+                                                if (inputElement && inputElement.value.trim()) {
+                                                  setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
+                                                  setEditPrompt(inputElement.value);
+                                                  handleEditImage(images[0], provider);
+                                                }
+                                              }
+                                            }}
+                                            disabled={isGenerating}
+                                            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-1 text-xs font-medium shadow-sm"
+                                          >
+                                            {isGenerating && editingImage?.provider === provider && editingImage?.messageId === message.id ? (
+                                              <Loader className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Check className="w-3 h-3" />
+                                            )}
+                                            Edit
                                           </button>
                                         </div>
                                       </div>
-                                    ))}
+                                    )}
                                   </div>
-
-                                  {/* Always Visible Edit Interface */}
-                                  <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                      <Edit2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                        Edit with {PROVIDER_INFO[provider as Provider]?.displayName || provider}
-                                      </span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <input
-                                        type="text"
-                                        value={editingImage?.provider === provider && editingImage?.messageId === message.id ? editPrompt : ""}
-                                        onChange={(e) => {
-                                          if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
-                                            setEditPrompt(e.target.value);
-                                          }
-                                        }}
-                                        placeholder="Describe your modifications..."
-                                        className="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs"
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter" && !e.shiftKey) {
-                                            e.preventDefault();
-                                            if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
-                                              handleEditImage(editingImage.imageUrl, provider);
-                                            } else if (images.length > 0) {
-                                              setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
-                                              setEditPrompt(e.currentTarget.value);
-                                              handleEditImage(images[0], provider);
-                                            }
-                                          }
-                                        }}
-                                        onFocus={() => {
-                                          if (images.length > 0) {
-                                            setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
-                                          }
-                                        }}
-                                      />
-                                      <button
-                                        onClick={() => {
-                                          if (editingImage?.provider === provider && editingImage?.messageId === message.id) {
-                                            handleEditImage(editingImage.imageUrl, provider);
-                                          } else if (images.length > 0) {
-                                            const inputElement = document.querySelector(`input[placeholder="Describe your modifications..."]`) as HTMLInputElement;
-                                            if (inputElement && inputElement.value.trim()) {
-                                              setEditingImage({ messageId: message.id, imageUrl: images[0], provider });
-                                              setEditPrompt(inputElement.value);
-                                              handleEditImage(images[0], provider);
-                                            }
-                                          }
-                                        }}
-                                        disabled={isGenerating}
-                                        className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-1 text-xs font-medium shadow-sm"
-                                      >
-                                        {isGenerating && editingImage?.provider === provider && editingImage?.messageId === message.id ? (
-                                          <Loader className="w-3 h-3 animate-spin" />
-                                        ) : (
-                                          <Check className="w-3 h-3" />
-                                        )}
-                                        Edit
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                                );
+                              })}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}

@@ -15,6 +15,9 @@ import {
   Cpu,
 } from "lucide-react";
 import { ChatSession } from "@/types/chat";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface ChatSidebarProps {
   currentSessionId?: string;
@@ -40,6 +43,8 @@ export function ChatSidebar({
   const [selectedSessionId, setSelectedSessionId] = useState<
     string | undefined
   >(currentSessionId);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedSessionId(currentSessionId);
@@ -105,25 +110,24 @@ export function ChatSidebar({
     }
   };
 
-  const handleDeleteSession = async (
-    sessionId: string,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    if (confirm("Are you sure you want to delete this chat?")) {
-      try {
-        const response = await fetch(`/api/chat/sessions/${sessionId}/delete`, {
-          method: "DELETE",
-        });
-        if (response.ok) {
-          setSessions(sessions.filter(s => s.id !== sessionId));
-          if (currentSessionId === sessionId) {
-            router.push("/chat");
-          }
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionToDelete}/delete`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setSessions(sessions.filter(s => s.id !== sessionToDelete));
+        if (currentSessionId === sessionToDelete) {
+          router.push("/chat");
         }
-      } catch (error) {
-        console.error("Failed to delete session:", error);
       }
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+    } finally {
+      setSessionToDelete(null);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -290,7 +294,7 @@ export function ChatSidebar({
                     // Edit mode
                     !isCollapsed && (
                       <div className="p-1.5">
-                        <input
+                        <Input
                           type="text"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
@@ -299,22 +303,26 @@ export function ChatSidebar({
                               handleEditSave(chatSession.id);
                             if (e.key === "Escape") handleEditCancel();
                           }}
-                          className="w-full px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                          className="text-xs h-7"
                           autoFocus
                         />
                         <div className="flex gap-1 mt-1">
-                          <button
+                          <Button
                             onClick={() => handleEditSave(chatSession.id)}
-                            className="p-0.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20 rounded"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20"
                           >
                             <Check className="w-3 h-3" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={handleEditCancel}
-                            className="p-0.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20"
                           >
                             <X className="w-3 h-3" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )
@@ -390,22 +398,28 @@ export function ChatSidebar({
                           className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 pr-2"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
+                          <Button
                             onClick={(e) => handleEditStart(chatSession, e)}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                            size="sm"
+                            variant="ghost"
+                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                             title="Edit title"
                           >
                             <Edit2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={(e) =>
-                              handleDeleteSession(chatSession.id, e)
-                            }
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                          </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSessionToDelete(chatSession.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            size="sm"
+                            variant="ghost"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                             title="Delete session"
                           >
                             <Trash2 className="w-3 h-3" />
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -416,6 +430,19 @@ export function ChatSidebar({
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Chat Session"
+        description="Are you sure you want to delete this chat? This action cannot be undone and all messages in this conversation will be permanently lost."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={confirmDeleteSession}
+        onCancel={() => setSessionToDelete(null)}
+      />
     </>
   );
 }
