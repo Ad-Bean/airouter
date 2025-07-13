@@ -201,25 +201,80 @@ export async function cleanupOrphanedRecords(): Promise<number> {
 }
 
 /**
- * Set auto-delete for free users
+ * Set auto-delete for free users (10 minutes) and paid users (7 days)
  */
 export async function setAutoDeleteForFreeUsers(): Promise<number> {
-  // TODO: Fix this after Prisma client is updated
-  // const tenMinutesFromNow = new Date(Date.now() + 10 * 60 * 1000);
+  const now = new Date();
+  const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes for free users
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days for paid users
 
-  // const result = await prisma.generatedImage.updateMany({
-  //   where: {
-  //     autoDeleteAt: null,
-  //     deleted: false,
-  //     user: {
-  //       userType: 'free',
-  //     },
-  //   },
-  //   data: {
-  //     autoDeleteAt: tenMinutesFromNow,
-  //   },
-  // });
+  // Update free users' images to auto-delete in 10 minutes
+  const freeUserResult = await prisma.generatedImage.updateMany({
+    where: {
+      autoDeleteAt: null,
+      deleted: false,
+      user: {
+        userType: 'free',
+      },
+    },
+    data: {
+      autoDeleteAt: tenMinutesFromNow,
+    },
+  });
 
-  console.log('Auto-delete for free users - temporarily disabled');
-  return 0; // Temporary return
+  // Update paid users' images to auto-delete in 7 days
+  await prisma.generatedImage.updateMany({
+    where: {
+      autoDeleteAt: null,
+      deleted: false,
+      user: {
+        userType: 'paid',
+      },
+    },
+    data: {
+      autoDeleteAt: sevenDaysFromNow,
+    },
+  });
+
+  return freeUserResult.count;
+}
+
+/**
+ * Get auto-delete date based on user type
+ */
+export function getAutoDeleteDate(userType: string): Date {
+  const now = new Date();
+  if (userType === 'free') {
+    return new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes for free users
+  } else {
+    return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days for paid users
+  }
+}
+
+/**
+ * Get time remaining until auto-delete
+ */
+export function getTimeRemaining(autoDeleteAt: Date): {
+  expired: boolean;
+  timeLeft: string;
+  minutes: number;
+} {
+  const now = new Date();
+  const timeDiff = autoDeleteAt.getTime() - now.getTime();
+  
+  if (timeDiff <= 0) {
+    return { expired: true, timeLeft: "Expired", minutes: 0 };
+  }
+  
+  const minutes = Math.floor(timeDiff / (1000 * 60));
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) {
+    return { expired: false, timeLeft: `${days}d ${hours % 24}h`, minutes };
+  } else if (hours > 0) {
+    return { expired: false, timeLeft: `${hours}h ${minutes % 60}m`, minutes };
+  } else {
+    return { expired: false, timeLeft: `${minutes}m`, minutes };
+  }
 }

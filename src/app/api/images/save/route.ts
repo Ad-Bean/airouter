@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import { uploadImageToS3 } from "@/lib/s3";
+import { getAutoDeleteDate } from "@/lib/storage-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -165,13 +166,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Verify user exists with retry logic
-    const userExists = await withDatabaseRetry(async () => {
+    const user = await withDatabaseRetry(async () => {
       return await prisma.user.findUnique({
         where: { id: userId },
+        select: { userType: true },
       });
     });
 
-    if (!userExists) {
+    if (!user) {
       console.error("User not found:", userId);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -179,21 +181,7 @@ export async function POST(request: NextRequest) {
     // Save to database with retry logic
     const savedImage = await withDatabaseRetry(async () => {
       // Set auto-delete based on user type
-      // TODO: Fix this after Prisma client is updated
-      // const user = await prisma.user.findUnique({
-      //   where: { id: userId },
-      //   select: { userType: true },
-      // });
-      
-      let autoDeleteAt = null;
-      // Default to free user behavior for now
-      // if (user?.userType === 'free') {
-        // Free users: auto-delete after 10 minutes
-        autoDeleteAt = new Date(Date.now() + 10 * 60 * 1000);
-      // } else {
-      //   // Paid users: auto-delete after 10 days
-      //   autoDeleteAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
-      // }
+      const autoDeleteAt = getAutoDeleteDate(user.userType);
       
       return await prisma.generatedImage.create({
         data: {

@@ -13,6 +13,8 @@ export interface Message {
     imageProviderMap?: Record<string, string>;
     providerErrors?: Record<string, string>;
     error?: string;
+    autoDeleteAt?: string; // ISO date string for when images expire
+    userType?: "free" | "paid";
   };
   timestamp: Date;
 }

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import { generateImageDirect, type Provider } from "@/lib/direct-generate";
 import { uploadImageToS3 } from "@/lib/s3";
+import { getAutoDeleteDate } from "@/lib/storage-utils";
 
 // Direct image saving function for internal use
 async function saveImageToDatabase({
@@ -297,6 +298,15 @@ async function generateImagesBackground(
         status = "failed";
       }
 
+      // Get user type for expiration info
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { userType: true },
+      });
+      
+      const userType = user?.userType || "free";
+      const autoDeleteAt = hasImages ? getAutoDeleteDate(userType) : undefined;
+
       await prisma.chatMessage.update({
         where: { id: messageId },
         data: {
@@ -309,6 +319,8 @@ async function generateImagesBackground(
             prompt,
             imageProviderMap,
             providerErrors: Object.keys(providerErrors).length > 0 ? providerErrors : undefined,
+            autoDeleteAt: autoDeleteAt?.toISOString(),
+            userType: userType as "free" | "paid",
           },
           updatedAt: new Date(),
         },

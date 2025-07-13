@@ -22,6 +22,7 @@ import { ChatNavigation } from "@/components/ChatNavigation";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ModelSelectorModal } from "@/components/ModelSelectorModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageExpirationWarning } from "@/components/ImageExpirationWarning";
 import { type Message } from "@/types/chat";
 import {
   AVAILABLE_PROVIDERS,
@@ -667,6 +668,16 @@ function ChatPageContent() {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Image Expiration Warning */}
+                          {message.metadata?.autoDeleteAt && (
+                            <div className="mt-3">
+                              <ImageExpirationWarning
+                                autoDeleteAt={new Date(message.metadata.autoDeleteAt)}
+                                userType={message.metadata?.userType || "free"}
+                              />
+                            </div>
+                          )}
                         </div>
 
                         {/* Generation Status */}
