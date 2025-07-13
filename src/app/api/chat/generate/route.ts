@@ -122,28 +122,103 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sessionId, prompt, providers, models, imageCount } =
+    const { sessionId, prompt, providers, models, imageCount, messageId } =
       await request.json();
 
-    // Create initial assistant message with generating status
-    const assistantMessage = await withDatabaseRetry(async () => {
-      return await prisma.chatMessage.create({
-        data: {
-          sessionId,
-          role: "assistant",
-          content: prompt, // Store the prompt as content for image messages
-          type: "image",
-          status: "generating",
-          imageUrls: [],
-          metadata: {
-            providers,
-            models,
-            imageCount,
-            prompt,
+    let assistantMessage;
+
+    // If messageId is provided (from frontend), update existing message
+    if (messageId) {
+      try {
+        assistantMessage = await withDatabaseRetry(async () => {
+          // Check if message already exists
+          const existing = await prisma.chatMessage.findUnique({
+            where: { id: messageId },
+          });
+
+          if (existing) {
+            // Update existing message
+            return await prisma.chatMessage.update({
+              where: { id: messageId },
+              data: {
+                sessionId,
+                role: "assistant",
+                content: prompt,
+                type: "image",
+                status: "generating",
+                imageUrls: [],
+                metadata: {
+                  providers,
+                  models,
+                  imageCount,
+                  prompt,
+                },
+              },
+            });
+          } else {
+            // Create new message with specific ID
+            return await prisma.chatMessage.create({
+              data: {
+                id: messageId,
+                sessionId,
+                role: "assistant",
+                content: prompt,
+                type: "image",
+                status: "generating",
+                imageUrls: [],
+                metadata: {
+                  providers,
+                  models,
+                  imageCount,
+                  prompt,
+                },
+              },
+            });
+          }
+        });
+      } catch (error) {
+        console.error("Error handling message with ID:", error);
+        // Fall back to creating new message
+        assistantMessage = await withDatabaseRetry(async () => {
+          return await prisma.chatMessage.create({
+            data: {
+              sessionId,
+              role: "assistant",
+              content: prompt,
+              type: "image",
+              status: "generating",
+              imageUrls: [],
+              metadata: {
+                providers,
+                models,
+                imageCount,
+                prompt,
+              },
+            },
+          });
+        });
+      }
+    } else {
+      // Create initial assistant message with generating status
+      assistantMessage = await withDatabaseRetry(async () => {
+        return await prisma.chatMessage.create({
+          data: {
+            sessionId,
+            role: "assistant",
+            content: prompt,
+            type: "image",
+            status: "generating",
+            imageUrls: [],
+            metadata: {
+              providers,
+              models,
+              imageCount,
+              prompt,
+            },
           },
-        },
+        });
       });
-    });
+    }
 
     // Start image generation in background
     generateImagesBackground(

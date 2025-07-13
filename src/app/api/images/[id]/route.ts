@@ -10,6 +10,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    
+    // Add more robust ID validation
+    if (!id || id.length < 1) {
+      return NextResponse.json({ error: "Invalid image ID" }, { status: 400 });
+    }
+
     const session = await getServerSession(authOptions);
 
     let image;
@@ -28,6 +34,7 @@ export async function GET(
           isPublic: true,
           userId: true,
           deleted: true,
+          autoDeleteAt: true,
         },
       });
     } catch (dbError) {
@@ -58,18 +65,103 @@ export async function GET(
     }
 
     if (!image || image.deleted) {
-      return NextResponse.json({ error: "Image not found" }, { status: 404 });
+      // Create a placeholder image for missing/deleted images
+      const placeholderSvg = `
+        <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+          <rect width="400" height="400" fill="#f3f4f6"/>
+          <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6b7280">
+            Image Not Found
+          </text>
+          <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9ca3af">
+            This image may have expired or been deleted
+          </text>
+          <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#d1d5db">
+            Image ID: ${id}
+          </text>
+        </svg>
+      `;
+
+      return new NextResponse(placeholderSvg, {
+        status: 200, // Return 200 instead of 404 to avoid breaking UI
+        headers: {
+          "Content-Type": "image/svg+xml",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
+    // Check if image has expired (auto-delete)
+    if (image.autoDeleteAt && new Date(image.autoDeleteAt) <= new Date()) {
+      const expiredSvg = `
+        <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+          <rect width="400" height="400" fill="#fef2f2"/>
+          <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#dc2626">
+            Image Expired
+          </text>
+          <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#991b1b">
+            This image has expired and is no longer available
+          </text>
+          <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#dc2626">
+            Expired: ${new Date(image.autoDeleteAt).toLocaleString()}
+          </text>
+        </svg>
+      `;
+
+      return new NextResponse(expiredSvg, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/svg+xml",
+          "Cache-Control": "no-cache",
+        },
+      });
     }
 
     // Check authorization (unless image is public)
     if (!image.isPublic) {
       if (!session?.user?.id) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        // Instead of returning 401, return a placeholder for unauthorized access
+        const unauthorizedSvg = `
+          <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="400" fill="#f9fafb"/>
+            <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6b7280">
+              Authentication Required
+            </text>
+            <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9ca3af">
+              Please sign in to view this image
+            </text>
+          </svg>
+        `;
+
+        return new NextResponse(unauthorizedSvg, {
+          status: 200,
+          headers: {
+            "Content-Type": "image/svg+xml",
+            "Cache-Control": "no-cache",
+          },
+        });
       }
       
       // Check if user owns the image
       if (session.user.id !== image.userId) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        const forbiddenSvg = `
+          <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="400" fill="#f9fafb"/>
+            <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6b7280">
+              Access Denied
+            </text>
+            <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9ca3af">
+              You don't have permission to view this image
+            </text>
+          </svg>
+        `;
+
+        return new NextResponse(forbiddenSvg, {
+          status: 200,
+          headers: {
+            "Content-Type": "image/svg+xml",
+            "Cache-Control": "no-cache",
+          },
+        });
       }
     }
 
@@ -94,8 +186,16 @@ export async function GET(
         }
 
         // Redirect to signed URL for direct access
-        const response = await fetch(signedUrl);
+        const response = await fetch(signedUrl, {
+          headers: {
+            'User-Agent': 'airouter-image-proxy',
+          },
+          // Add timeout to prevent hanging requests
+          signal: AbortSignal.timeout(10000),
+        });
+        
         if (!response.ok) {
+          console.error(`Failed to fetch S3 image: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
         
@@ -103,6 +203,7 @@ export async function GET(
         const headers = new Headers();
         headers.set("Content-Type", image.mimeType || "image/png");
         headers.set("Cache-Control", "public, max-age=3600");
+        headers.set("Access-Control-Allow-Origin", "*");
         
         return new NextResponse(imageBuffer, {
           status: 200,
@@ -147,8 +248,15 @@ export async function GET(
     // Priority 3: Legacy imageUrl
     if (image.imageUrl) {
       try {
-        const response = await fetch(image.imageUrl);
+        const response = await fetch(image.imageUrl, {
+          headers: {
+            'User-Agent': 'airouter-image-proxy',
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        
         if (!response.ok) {
+          console.error(`Failed to fetch legacy image: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
         
@@ -156,6 +264,7 @@ export async function GET(
         const headers = new Headers();
         headers.set("Content-Type", image.mimeType || "image/png");
         headers.set("Cache-Control", "public, max-age=3600");
+        headers.set("Access-Control-Allow-Origin", "*");
         
         return new NextResponse(imageBuffer, {
           status: 200,
@@ -163,19 +272,58 @@ export async function GET(
         });
       } catch (error) {
         console.error("Error fetching legacy image URL:", error);
-        // Continue to 404
+        // Continue to fallback
       }
     }
 
-    return NextResponse.json(
-      { error: "Image data not available" },
-      { status: 404 }
-    );
+    // Final fallback: Return error placeholder
+    const errorSvg = `
+      <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" fill="#fef2f2"/>
+        <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#dc2626">
+          Image Data Unavailable
+        </text>
+        <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#991b1b">
+          The image data could not be retrieved
+        </text>
+        <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#dc2626">
+          Image ID: ${id}
+        </text>
+      </svg>
+    `;
+
+    return new NextResponse(errorSvg, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "no-cache",
+      },
+    });
   } catch (error) {
     console.error("Error serving image:", error);
-    return NextResponse.json(
-      { error: "Failed to serve image" },
-      { status: 500 }
-    );
+    
+    // Even in error cases, return a placeholder instead of JSON error
+    const errorSvg = `
+      <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" fill="#fef2f2"/>
+        <text x="200" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#dc2626">
+          Server Error
+        </text>
+        <text x="200" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#991b1b">
+          Failed to serve image
+        </text>
+        <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#dc2626">
+          Please try again later
+        </text>
+      </svg>
+    `;
+
+    return new NextResponse(errorSvg, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "no-cache",
+      },
+    });
   }
 }
