@@ -1,8 +1,13 @@
-import { GoogleAuth } from "google-auth-library";
+import { GoogleAuth } from 'google-auth-library';
 
 export interface GoogleGenerateParams {
   prompt: string;
-  model?: "imagen-4-preview" | "imagen-4-standard" | "imagen-4-ultra" | "imagen-3" | "imagen-4.0-generate-preview-06-06";
+  model?:
+    | 'imagen-4-preview'
+    | 'imagen-4-standard'
+    | 'imagen-4-ultra'
+    | 'imagen-3'
+    | 'imagen-4.0-generate-preview-06-06';
   sampleCount?: number;
   aspectRatio?: string;
   safetySetting?: string;
@@ -25,27 +30,24 @@ let auth: GoogleAuth | null = null;
 function getGoogleAuth(): GoogleAuth {
   if (!auth) {
     if (!process.env.GOOGLE_CLOUD_PROJECT) {
-      throw new Error("GOOGLE_CLOUD_PROJECT environment variable not set");
+      throw new Error('GOOGLE_CLOUD_PROJECT environment variable not set');
     }
     if (!process.env.GOOGLE_CLOUD_LOCATION) {
-      throw new Error("GOOGLE_CLOUD_LOCATION environment variable not set");
+      throw new Error('GOOGLE_CLOUD_LOCATION environment variable not set');
     }
 
     const authOptions: {
       scopes: string[];
       credentials?: Record<string, unknown>;
     } = {
-      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     };
 
-    // Support JSON credentials as environment variable
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
       try {
-        authOptions.credentials = JSON.parse(
-          process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-        );
+        authOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
       } catch {
-        throw new Error("Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON format");
+        throw new Error('Invalid GOOGLE_APPLICATION_CREDENTIALS_JSON format');
       }
     }
     // If GOOGLE_APPLICATION_CREDENTIALS is set, GoogleAuth will use it automatically
@@ -57,15 +59,15 @@ function getGoogleAuth(): GoogleAuth {
 }
 
 export async function generateWithGoogle(
-  params: GoogleGenerateParams
+  params: GoogleGenerateParams,
 ): Promise<GoogleGenerateResponse> {
   const {
     prompt,
-    model = "imagen-4-preview",
+    model = 'imagen-4-preview',
     sampleCount = 1,
-    aspectRatio = "1:1",
-    safetySetting = "block_medium_and_above",
-    personGeneration = "allow_adult",
+    aspectRatio = '1:1',
+    safetySetting = 'block_medium_and_above',
+    personGeneration = 'allow_adult',
     addWatermark = true,
     seed,
     enhancePrompt = false,
@@ -76,7 +78,7 @@ export async function generateWithGoogle(
     const accessToken = await googleAuth.getAccessToken();
 
     if (!accessToken) {
-      throw new Error("Failed to get Google Cloud access token");
+      throw new Error('Failed to get Google Cloud access token');
     }
 
     const project = process.env.GOOGLE_CLOUD_PROJECT;
@@ -84,11 +86,11 @@ export async function generateWithGoogle(
 
     // Map model names to API endpoints
     const modelEndpoints: Record<string, string> = {
-      "imagen-4-preview": "imagen-4.0-generate-preview-06-06",
-      "imagen-4-standard": "imagen-4.0-generate-standard-06-06",
-      "imagen-4-ultra": "imagen-4.0-generate-ultra-06-06",
-      "imagen-3": "imagen-3.0-generate-001",
-      "imagen-4.0-generate-preview-06-06": "imagen-4.0-generate-preview-06-06", // Legacy support
+      'imagen-4-preview': 'imagen-4.0-generate-preview-06-06',
+      'imagen-4-standard': 'imagen-4.0-generate-standard-06-06',
+      'imagen-4-ultra': 'imagen-4.0-generate-ultra-06-06',
+      'imagen-3': 'imagen-3.0-generate-001',
+      'imagen-4.0-generate-preview-06-06': 'imagen-4.0-generate-preview-06-06', // Legacy support
     };
 
     const apiModel = modelEndpoints[model] || model;
@@ -112,17 +114,17 @@ export async function generateWithGoogle(
     };
 
     const response = await fetch(endpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=utf-8",
+        'Content-Type': 'application/json; charset=utf-8',
       },
       body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Google Vertex AI API Error Details:", {
+      console.error('Google Vertex AI API Error Details:', {
         status: response.status,
         statusText: response.statusText,
         errorBody: errorText,
@@ -130,22 +132,22 @@ export async function generateWithGoogle(
         requestBody,
       });
       throw new Error(
-        `Google Vertex AI API error: ${response.status} ${response.statusText}\n${errorText}`
+        `Google Vertex AI API error: ${response.status} ${response.statusText}\n${errorText}`,
       );
     }
 
     const data = await response.json();
 
-    console.log("\n\nGoogle Vertex AI response:", data);
-    
+    console.log('\n\nGoogle Vertex AI response:', data);
+
     if (!data.predictions || !Array.isArray(data.predictions)) {
-      throw new Error("Invalid response format from Google Vertex AI API");
+      throw new Error('Invalid response format from Google Vertex AI API');
     }
 
     // Extract images from the response
     const images: string[] = [];
     let errorMessage = null;
-    
+
     for (const prediction of data.predictions) {
       if (prediction.bytesBase64Encoded) {
         // Convert base64 to data URL
@@ -160,7 +162,7 @@ export async function generateWithGoogle(
       if (errorMessage) {
         throw new Error(`Google Vertex AI filtered the content: ${errorMessage}`);
       } else {
-        throw new Error("No images generated by Google Vertex AI");
+        throw new Error('No images generated by Google Vertex AI');
       }
     }
 
@@ -172,7 +174,7 @@ export async function generateWithGoogle(
       model,
     };
   } catch (error) {
-    console.error("Google Vertex AI generation error:", error);
+    console.error('Google Vertex AI generation error:', error);
     throw error;
   }
 }

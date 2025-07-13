@@ -63,7 +63,6 @@ export default function Icon() {
             <circle cx="165" cy="95" r="12" fill="#A7F3D0" stroke="none" />
           </g>
 
-          {/* Connection Lines and Nodes (The "Models") */}
           <g>
             {/* Line and Node 1 */}
             <line x1="192" y1="221.7" x2="149" y2="190" stroke="url(#grad2)" strokeWidth="6" />

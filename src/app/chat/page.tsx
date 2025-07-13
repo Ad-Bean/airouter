@@ -187,7 +187,6 @@ function ChatPageContent() {
           }
         } else {
           console.warn('Failed to poll messages:', response.status);
-          // Don't stop polling on single failure, but log it
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -195,11 +194,10 @@ function ChatPageContent() {
         } else {
           console.error('Failed to poll messages:', error);
         }
-        // Continue polling even on errors to maintain UI consistency
       }
     };
 
-    const interval = setInterval(pollMessages, 2000); // Poll every 2 seconds
+    const interval = setInterval(pollMessages, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
   }, [isGenerating, currentSessionId]);
 
@@ -406,11 +404,6 @@ function ChatPageContent() {
     }
   };
 
-  const startEditingImage = (messageId: string, imageUrl: string, provider: string) => {
-    setEditingImage({ messageId, imageUrl, provider });
-    setEditPrompt('');
-  };
-
   // Group images by provider for each message
   const groupImagesByProvider = (message: Message) => {
     const providers = (message.metadata?.providers as string[]) || [];
@@ -438,27 +431,47 @@ function ChatPageContent() {
           const provider = imageProviderMap[imageUrl];
           if (provider && imageGroups[provider] !== undefined) {
             imageGroups[provider].push(imageUrl);
+          } else {
+            // If no provider found in map, assign to first available provider
+            const availableProvider = providers.find((p) => !providerErrors[p]);
+            if (availableProvider) {
+              imageGroups[availableProvider].push(imageUrl);
+            }
           }
         });
       } else {
-        // Fallback to old logic if imageProviderMap is not available
-        let imageIndex = 0;
-        providers.forEach((provider) => {
-          const imagesPerProvider = Math.floor(message.imageUrls!.length / providers.length);
-          const remainingImages = message.imageUrls!.length % providers.length;
-          const currentProviderImages = imagesPerProvider + (imageIndex < remainingImages ? 1 : 0);
+        // Improved fallback logic - assign all images to first provider if no map exists
+        // This handles cases where some providers fail but others succeed
+        const successfulProviders = providers.filter((provider) => !providerErrors[provider]);
 
-          const providerImages = message.imageUrls!.slice(
-            imageIndex,
-            imageIndex + currentProviderImages,
-          );
+        if (successfulProviders.length > 0) {
+          // If we have successful providers, distribute images among them
+          let imageIndex = 0;
+          successfulProviders.forEach((provider, providerIndex) => {
+            const imagesPerProvider = Math.floor(
+              message.imageUrls!.length / successfulProviders.length,
+            );
+            const remainingImages = message.imageUrls!.length % successfulProviders.length;
+            const currentProviderImages =
+              imagesPerProvider + (providerIndex < remainingImages ? 1 : 0);
 
-          if (providerImages.length > 0) {
-            imageGroups[provider] = providerImages;
+            const providerImages = message.imageUrls!.slice(
+              imageIndex,
+              imageIndex + currentProviderImages,
+            );
+
+            if (providerImages.length > 0) {
+              imageGroups[provider] = providerImages;
+            }
+
+            imageIndex += currentProviderImages;
+          });
+        } else {
+          // Fallback: assign all images to the first provider
+          if (providers.length > 0) {
+            imageGroups[providers[0]] = [...message.imageUrls];
           }
-
-          imageIndex += currentProviderImages;
-        });
+        }
       }
     }
 
@@ -750,6 +763,15 @@ function ChatPageContent() {
                                   {};
                                 const hasProviderError = providerErrors[provider];
 
+                                // If provider has no images and no error, but other providers have images,
+                                // assume this provider failed silently
+                                const shouldShowError =
+                                  !hasProviderError &&
+                                  images.length === 0 &&
+                                  !isGenerating &&
+                                  message.imageUrls &&
+                                  message.imageUrls.length > 0;
+
                                 return (
                                   <div key={provider} className="space-y-3">
                                     {/* Provider Header */}
@@ -771,11 +793,12 @@ function ChatPageContent() {
                                             </span>
                                           )}
                                         </h4>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                          {hasProviderError ? (
+
+                                        <p className="max-w-76 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                          {hasProviderError || shouldShowError ? (
                                             <span className="flex items-center gap-1 text-red-500 dark:text-red-400">
                                               <AlertCircle className="h-3 w-3" />
-                                              Failed to generate
+                                              {hasProviderError || 'Failed to generate'}
                                             </span>
                                           ) : isGenerating ? (
                                             <span className="flex items-center gap-1 text-blue-500 dark:text-blue-400">
@@ -801,7 +824,7 @@ function ChatPageContent() {
                                     <div className="grid grid-cols-2 gap-3">
                                       {/* Show actual images */}
                                       {images.map((url, index) => (
-                                        <div key={index} className="group relative">
+                                        <div key={index} className="group">
                                           <GeneratedImage
                                             src={url}
                                             alt={`Generated by ${provider} - ${index + 1}`}
@@ -816,24 +839,12 @@ function ChatPageContent() {
                                               window.open(imageUrl, '_blank');
                                             }}
                                           />
-                                          {/* Edit Button */}
-                                          <div className="absolute top-2 right-2 opacity-0 transition-all duration-200 group-hover:opacity-100">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                startEditingImage(message.id, url, provider);
-                                              }}
-                                              className="rounded-lg bg-black/80 p-1.5 text-white shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-110 hover:bg-black"
-                                              title="Edit this image"
-                                            >
-                                              <Edit2 className="h-3.5 w-3.5" />
-                                            </button>
-                                          </div>
                                         </div>
                                       ))}
 
                                       {/* Show loading skeletons for remaining images */}
                                       {isGenerating &&
+                                        !(hasProviderError || shouldShowError) &&
                                         Array.from({
                                           length: Math.max(0, expectedCount - images.length),
                                         }).map((_, index) => (
@@ -846,41 +857,47 @@ function ChatPageContent() {
                                         ))}
 
                                       {/* Show error placeholders for failed images */}
-                                      {hasProviderError && !isGenerating && images.length === 0 && (
-                                        <div className="col-span-2 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/10">
-                                          <AlertCircle className="mb-2 h-8 w-8 text-red-500 dark:text-red-400" />
-                                          <p className="mb-3 text-center text-sm text-red-600 dark:text-red-400">
-                                            {hasProviderError}
-                                          </p>
-                                          <div className="flex items-center gap-2">
-                                            <button
-                                              onClick={() => {
-                                                if (prompt) {
-                                                  handleSendMessage(prompt, [provider as Provider]);
-                                                }
-                                              }}
-                                              className="flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-xs text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
-                                            >
-                                              <RefreshCw className="h-3 w-3" />
-                                              Retry
-                                            </button>
-                                            {hasProviderError.includes('Insufficient credits') && (
+                                      {(hasProviderError || shouldShowError) &&
+                                        !isGenerating &&
+                                        images.length === 0 && (
+                                          <div className="flex h-96 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/10">
+                                            <AlertCircle className="mb-2 h-8 w-8 text-red-500 dark:text-red-400" />
+                                            <p className="mb-3 text-center text-sm text-red-600 dark:text-red-400">
+                                              {hasProviderError || 'Failed to generate images'}
+                                            </p>
+                                            <div className="flex items-center gap-2">
                                               <button
                                                 onClick={() => {
-                                                  window.location.href = '/billing';
+                                                  if (prompt) {
+                                                    handleSendMessage(prompt, [
+                                                      provider as Provider,
+                                                    ]);
+                                                  }
                                                 }}
-                                                className="flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                                                className="flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-xs text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
                                               >
-                                                <CreditCard className="h-3 w-3" />
-                                                Add Credits
+                                                <RefreshCw className="h-3 w-3" />
+                                                Retry
                                               </button>
-                                            )}
+                                              {(hasProviderError || '').includes(
+                                                'Insufficient credits',
+                                              ) && (
+                                                <button
+                                                  onClick={() => {
+                                                    window.location.href = '/billing';
+                                                  }}
+                                                  className="flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                                                >
+                                                  <CreditCard className="h-3 w-3" />
+                                                  Add Credits
+                                                </button>
+                                              )}
+                                            </div>
                                           </div>
-                                        </div>
-                                      )}
+                                        )}
 
                                       {/* Show partial error for when some images failed */}
-                                      {hasProviderError &&
+                                      {(hasProviderError || shouldShowError) &&
                                         !isGenerating &&
                                         images.length > 0 &&
                                         images.length < expectedCount &&
