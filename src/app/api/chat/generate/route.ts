@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
-import { generateImageDirect, type Provider } from "@/lib/direct-generate";
-import { uploadImageToS3 } from "@/lib/s3";
-import { getAutoDeleteDate } from "@/lib/storage-utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma, withDatabaseRetry } from '@/lib/prisma';
+import { generateImageDirect, type Provider } from '@/lib/direct-generate';
+import { uploadImageToS3 } from '@/lib/s3';
+import { getAutoDeleteDate } from '@/lib/storage-utils';
 
 // Direct image saving function for internal use
 async function saveImageToDatabase({
@@ -28,23 +28,23 @@ async function saveImageToDatabase({
 }) {
   try {
     let imageBuffer: Buffer;
-    let mimeType = "image/png";
+    let mimeType = 'image/png';
 
     // Process image data
-    if (imageData.startsWith("data:")) {
-      const [header, extractedBase64] = imageData.split(",");
+    if (imageData.startsWith('data:')) {
+      const [header, extractedBase64] = imageData.split(',');
       const mimeMatch = header.match(/data:([^;]+)/);
       if (mimeMatch) {
         mimeType = mimeMatch[1];
       }
-      imageBuffer = Buffer.from(extractedBase64, "base64");
+      imageBuffer = Buffer.from(extractedBase64, 'base64');
     } else {
-      imageBuffer = Buffer.from(imageData, "base64");
+      imageBuffer = Buffer.from(imageData, 'base64');
     }
 
     // Generate filename
     const timestamp = Date.now();
-    const extension = mimeType.split("/")[1] || "png";
+    const extension = mimeType.split('/')[1] || 'png';
     const filename = `generated_${timestamp}.${extension}`;
 
     let s3Url = null;
@@ -62,53 +62,54 @@ async function saveImageToDatabase({
       s3Url = uploadResult.url;
       s3Key = uploadResult.key;
       s3Bucket = uploadResult.bucket;
-      console.log("Successfully uploaded to S3:", { s3Key, s3Bucket });
+      console.log('Successfully uploaded to S3:', { s3Key, s3Bucket });
     } catch (s3Error) {
-      console.error("Failed to upload to S3:", s3Error);
+      console.error('Failed to upload to S3:', s3Error);
     }
 
-  // Save to database
-  const savedImage = await withDatabaseRetry(async () => {
-    // Get user type to determine auto-delete behavior
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { userType: true },
-    });
+    // Save to database
+    const savedImage = await withDatabaseRetry(async () => {
+      // Get user type to determine auto-delete behavior
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { userType: true },
+      });
 
-    const userType = user?.userType || "free";
-    
-    // Calculate auto-delete date based on user type
-    const autoDeleteAt = userType === "free" 
-      ? new Date(Date.now() + 10 * 60 * 1000) // Free users: 10 minutes
-      : new Date(Date.now() + 10 * 24 * 60 * 60 * 1000); // Paid users: 10 days
+      const userType = user?.userType || 'free';
 
-    return await prisma.generatedImage.create({
-      data: {
-        userId,
-        prompt: prompt.trim(),
-        s3Url,
-        s3Key,
-        s3Bucket,
-        mimeType,
-        filename,
-        provider,
-        model: model || "default",
-        width: width || 1024,
-        height: height || 1024,
-        steps: steps || 20,
-        isFavorite: false,
-        isPublic: false,
-        autoDeleteAt,
-      },
+      // Calculate auto-delete date based on user type
+      const autoDeleteAt =
+        userType === 'free'
+          ? new Date(Date.now() + 10 * 60 * 1000) // Free users: 10 minutes
+          : new Date(Date.now() + 10 * 24 * 60 * 60 * 1000); // Paid users: 10 days
+
+      return await prisma.generatedImage.create({
+        data: {
+          userId,
+          prompt: prompt.trim(),
+          s3Url,
+          s3Key,
+          s3Bucket,
+          mimeType,
+          filename,
+          provider,
+          model: model || 'default',
+          width: width || 1024,
+          height: height || 1024,
+          steps: steps || 20,
+          isFavorite: false,
+          isPublic: false,
+          autoDeleteAt,
+        },
+      });
     });
-  });
 
     return {
       image: savedImage,
       displayUrl: `/api/images/${savedImage.id}`,
     };
   } catch (error) {
-    console.error("Error saving image to database:", error);
+    console.error('Error saving image to database:', error);
     throw error;
   }
 }
@@ -119,11 +120,10 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { sessionId, prompt, providers, models, imageCount, messageId } =
-      await request.json();
+    const { sessionId, prompt, providers, models, imageCount, messageId } = await request.json();
 
     let assistantMessage;
 
@@ -142,10 +142,10 @@ export async function POST(request: NextRequest) {
               where: { id: messageId },
               data: {
                 sessionId,
-                role: "assistant",
+                role: 'assistant',
                 content: prompt,
-                type: "image",
-                status: "generating",
+                type: 'image',
+                status: 'generating',
                 imageUrls: [],
                 metadata: {
                   providers,
@@ -161,10 +161,10 @@ export async function POST(request: NextRequest) {
               data: {
                 id: messageId,
                 sessionId,
-                role: "assistant",
+                role: 'assistant',
                 content: prompt,
-                type: "image",
-                status: "generating",
+                type: 'image',
+                status: 'generating',
                 imageUrls: [],
                 metadata: {
                   providers,
@@ -177,16 +177,16 @@ export async function POST(request: NextRequest) {
           }
         });
       } catch (error) {
-        console.error("Error handling message with ID:", error);
+        console.error('Error handling message with ID:', error);
         // Fall back to creating new message
         assistantMessage = await withDatabaseRetry(async () => {
           return await prisma.chatMessage.create({
             data: {
               sessionId,
-              role: "assistant",
+              role: 'assistant',
               content: prompt,
-              type: "image",
-              status: "generating",
+              type: 'image',
+              status: 'generating',
               imageUrls: [],
               metadata: {
                 providers,
@@ -204,10 +204,10 @@ export async function POST(request: NextRequest) {
         return await prisma.chatMessage.create({
           data: {
             sessionId,
-            role: "assistant",
+            role: 'assistant',
             content: prompt,
-            type: "image",
-            status: "generating",
+            type: 'image',
+            status: 'generating',
             imageUrls: [],
             metadata: {
               providers,
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       providers,
       models,
       imageCount || {},
-      session.user.id
+      session.user.id,
     );
 
     return NextResponse.json({
@@ -245,11 +245,8 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error starting image generation:", error);
-    return NextResponse.json(
-      { error: "Failed to start image generation" },
-      { status: 500 }
-    );
+    console.error('Error starting image generation:', error);
+    return NextResponse.json({ error: 'Failed to start image generation' }, { status: 500 });
   }
 }
 
@@ -260,7 +257,7 @@ async function generateImagesBackground(
   providers: Provider[],
   models: Record<string, string>,
   imageCount: Record<string, number>,
-  userId: string
+  userId: string,
 ) {
   try {
     const generationPromises = providers.map(async (provider) => {
@@ -285,9 +282,9 @@ async function generateImagesBackground(
         };
 
         // Add the appropriate count parameter based on provider
-        if (provider === "google") {
+        if (provider === 'google') {
           generateParams.sampleCount = count;
-        } else if (provider === "openai") {
+        } else if (provider === 'openai') {
           generateParams.n = count;
         }
 
@@ -323,10 +320,15 @@ async function generateImagesBackground(
           return { success: true, provider, imageUrls, error: null };
         }
 
-        return { success: false, provider, imageUrls: [], error: result.error || "No images generated" };
+        return {
+          success: false,
+          provider,
+          imageUrls: [],
+          error: result.error || 'No images generated',
+        };
       } catch (error) {
         console.error(`Error generating from ${provider}:`, error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return { success: false, provider, imageUrls: [], error: errorMessage };
       }
     });
@@ -338,10 +340,10 @@ async function generateImagesBackground(
     const providerErrors: Record<string, string> = {};
 
     results.forEach((result, index) => {
-      if (result.status === "fulfilled") {
+      if (result.status === 'fulfilled') {
         const providerResult = result.value;
         const provider = providers[index];
-        
+
         if (providerResult.success) {
           providerResult.imageUrls.forEach((imageUrl) => {
             allImageUrls.push(imageUrl);
@@ -352,7 +354,7 @@ async function generateImagesBackground(
         }
       } else {
         const provider = providers[index];
-        providerErrors[provider] = result.reason?.message || "Generation failed";
+        providerErrors[provider] = result.reason?.message || 'Generation failed';
       }
     });
 
@@ -360,15 +362,15 @@ async function generateImagesBackground(
     await withDatabaseRetry(async () => {
       const hasImages = allImageUrls.length > 0;
       const hasErrors = Object.keys(providerErrors).length > 0;
-      
+
       // Determine status based on results
-      let status: "completed" | "failed" | "partial";
+      let status: 'completed' | 'failed' | 'partial';
       if (hasImages && !hasErrors) {
-        status = "completed";
+        status = 'completed';
       } else if (hasImages && hasErrors) {
-        status = "partial";
+        status = 'partial';
       } else {
-        status = "failed";
+        status = 'failed';
       }
 
       // Get user type for expiration info
@@ -376,8 +378,8 @@ async function generateImagesBackground(
         where: { id: userId },
         select: { userType: true },
       });
-      
-      const userType = user?.userType || "free";
+
+      const userType = user?.userType || 'free';
       const autoDeleteAt = hasImages ? getAutoDeleteDate(userType) : undefined;
 
       await prisma.chatMessage.update({
@@ -393,17 +395,14 @@ async function generateImagesBackground(
             imageProviderMap,
             providerErrors: Object.keys(providerErrors).length > 0 ? providerErrors : undefined,
             autoDeleteAt: autoDeleteAt?.toISOString(),
-            userType: userType as "free" | "paid",
+            userType: userType as 'free' | 'paid',
           },
           updatedAt: new Date(),
         },
       });
     });
   } catch (error) {
-    console.error(
-      `Error in background generation for message ${messageId}:`,
-      error
-    );
+    console.error(`Error in background generation for message ${messageId}:`, error);
 
     // Mark message as failed
     try {
@@ -411,20 +410,20 @@ async function generateImagesBackground(
         await prisma.chatMessage.update({
           where: { id: messageId },
           data: {
-            status: "failed",
+            status: 'failed',
             metadata: {
               providers,
               models,
               imageCount,
               prompt,
-              error: error instanceof Error ? error.message : "Unknown error",
+              error: error instanceof Error ? error.message : 'Unknown error',
             },
             updatedAt: new Date(),
           },
         });
       });
     } catch (updateError) {
-      console.error("Error updating message status to failed:", updateError);
+      console.error('Error updating message status to failed:', updateError);
     }
   }
 }

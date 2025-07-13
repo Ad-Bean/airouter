@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     // Check if URL needs refresh (expires within 1 hour)
     const now = new Date();
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-    
+
     if (image.expiresAt && image.expiresAt > oneHourFromNow) {
       // URL is still valid, return existing
       return NextResponse.json({
@@ -61,9 +61,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error refreshing signed URL:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

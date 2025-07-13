@@ -1,16 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { Navigation } from "@/components/Navigation";
-import { CheckCircle, Loader2, AlertCircle, CreditCard, Plus } from "lucide-react";
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { Navigation } from '@/components/Navigation';
+import { CheckCircle, Loader2, AlertCircle, CreditCard, Plus } from 'lucide-react';
 
 function BillingSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session, status } = useSession();
-  const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>(
+    'loading',
+  );
   const [paymentDetails, setPaymentDetails] = useState<{
     amount: number;
     creditsAdded: number;
@@ -21,26 +23,23 @@ function BillingSuccessContent() {
   const [creditsAdded, setCreditsAdded] = useState(false);
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (status === 'loading') return;
     if (!session) {
-      router.push("/");
+      router.push('/');
       return;
     }
   }, [session, status, router]);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-    const shouldUseDark =
-      savedTheme === "dark" || (!savedTheme && systemPrefersDark);
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
     setIsDark(shouldUseDark);
-    document.documentElement.classList.toggle("dark", shouldUseDark);
+    document.documentElement.classList.toggle('dark', shouldUseDark);
   }, []);
 
   useEffect(() => {
-    const sessionId = searchParams.get("session_id");
+    const sessionId = searchParams.get('session_id');
     if (sessionId && session) {
       verifyPayment(sessionId);
     }
@@ -48,17 +47,17 @@ function BillingSuccessContent() {
 
   const verifyPayment = async (sessionId: string) => {
     try {
-      console.log("Verifying payment for session:", sessionId);
+      console.log('Verifying payment for session:', sessionId);
       const response = await fetch(`/api/billing/verify-new?session_id=${sessionId}`);
       const data = await response.json();
-      
-      console.log("Verification response:", response.status, data);
-      
+
+      console.log('Verification response:', response.status, data);
+
       if (response.ok) {
         setVerificationStatus('success');
         setPaymentDetails(data);
       } else {
-        console.error("Verification failed:", data);
+        console.error('Verification failed:', data);
         setVerificationStatus('error');
       }
     } catch (error) {
@@ -70,46 +69,46 @@ function BillingSuccessContent() {
   const toggleTheme = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
-    document.documentElement.classList.toggle("dark", newTheme);
-    localStorage.setItem("theme", newTheme ? "dark" : "light");
+    document.documentElement.classList.toggle('dark', newTheme);
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
   };
 
   const handleManualCreditAddition = async () => {
-    const sessionId = searchParams.get("session_id");
+    const sessionId = searchParams.get('session_id');
     if (!sessionId) return;
 
     setIsAddingCredits(true);
     try {
-      const response = await fetch("/api/billing/add-credits", {
-        method: "POST",
+      const response = await fetch('/api/billing/add-credits', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ sessionId }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         setCreditsAdded(true);
-        alert(`Success! ${data.creditsAdded} credits added to your account. New balance: ${data.newBalance}`);
+        alert(
+          `Success! ${data.creditsAdded} credits added to your account. New balance: ${data.newBalance}`,
+        );
       } else {
         alert(`Error: ${data.error}`);
       }
     } catch (error) {
-      console.error("Error adding credits:", error);
-      alert("An error occurred while adding credits. Please try again.");
+      console.error('Error adding credits:', error);
+      alert('An error occurred while adding credits. Please try again.');
     } finally {
       setIsAddingCredits(false);
     }
   };
 
-  if (status === "loading") {
+  if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-lg text-gray-600 dark:text-gray-400">
-          Loading...
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
@@ -119,20 +118,20 @@ function BillingSuccessContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 transition-colors duration-300 dark:bg-gray-900">
       <Navigation
         isDark={isDark}
         onToggleTheme={toggleTheme}
-        onShowLogin={() => router.push("/?showLogin=true")}
-        onShowRegister={() => router.push("/?showRegister=true")}
+        onShowLogin={() => router.push('/?showLogin=true')}
+        onShowRegister={() => router.push('/?showRegister=true')}
       />
 
-      <div className="max-w-2xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="rounded-lg bg-white p-8 shadow-lg dark:bg-gray-800">
           {verificationStatus === 'loading' && (
             <div className="text-center">
-              <Loader2 className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-spin" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
+              <h1 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
                 Verifying Payment
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
@@ -143,32 +142,32 @@ function BillingSuccessContent() {
 
           {verificationStatus === 'success' && (
             <div className="text-center">
-              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-6" />
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              <CheckCircle className="mx-auto mb-6 h-16 w-16 text-green-500" />
+              <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
                 Payment Successful!
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">
+              <p className="mb-4 text-lg text-gray-600 dark:text-gray-400">
                 Thank you for your purchase. Your credits have been added to your account.
               </p>
-              
+
               {/* Tier Upgrade Notification */}
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-center mb-2">
-                  <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400 mr-2" />
+              <div className="mb-6 rounded-lg border border-green-200 bg-gradient-to-r from-green-50 to-blue-50 p-4 dark:border-green-800 dark:from-green-900/20 dark:to-blue-900/20">
+                <div className="mb-2 flex items-center justify-center">
+                  <CheckCircle className="mr-2 h-6 w-6 text-green-600 dark:text-green-400" />
                   <h3 className="text-lg font-semibold text-green-800 dark:text-green-300">
                     Account Upgraded to Paid Tier! 🎉
                   </h3>
                 </div>
-                <div className="text-center text-sm text-green-700 dark:text-green-300 space-y-1">
+                <div className="space-y-1 text-center text-sm text-green-700 dark:text-green-300">
                   <p>✨ Your images now stay for 7 days instead of 10 minutes</p>
                   <p>🚀 Enjoy premium features and enhanced experience</p>
                 </div>
               </div>
-              
+
               {paymentDetails && (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6">
-                  <div className="flex items-center justify-center mb-4">
-                    <CreditCard className="w-8 h-8 text-blue-600 mr-2" />
+                <div className="mb-6 rounded-lg bg-gray-50 p-6 dark:bg-gray-700">
+                  <div className="mb-4 flex items-center justify-center">
+                    <CreditCard className="mr-2 h-8 w-8 text-blue-600" />
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                       Purchase Details
                     </h2>
@@ -196,39 +195,39 @@ function BillingSuccessContent() {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <button
-                  onClick={() => router.push("/billing")}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  onClick={() => router.push('/billing')}
+                  className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
                 >
                   View Billing
                 </button>
                 <button
-                  onClick={() => router.push("/chat")}
-                  className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
+                  onClick={() => router.push('/chat')}
+                  className="rounded-lg bg-gray-200 px-6 py-3 font-medium text-gray-900 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                 >
                   Start Creating
                 </button>
               </div>
-              
+
               {!creditsAdded && (
-                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
+                  <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
                     Credits not showing up? Click below to manually add them:
                   </p>
                   <button
                     onClick={handleManualCreditAddition}
                     disabled={isAddingCredits}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+                    className="mx-auto flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isAddingCredits ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         Adding Credits...
                       </>
                     ) : (
                       <>
-                        <Plus className="w-4 h-4" />
+                        <Plus className="h-4 w-4" />
                         Manually Add Credits
                       </>
                     )}
@@ -240,24 +239,24 @@ function BillingSuccessContent() {
 
           {verificationStatus === 'error' && (
             <div className="text-center">
-              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              <AlertCircle className="mx-auto mb-6 h-16 w-16 text-red-500" />
+              <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
                 Payment Verification Failed
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
+              <p className="mb-6 text-lg text-gray-600 dark:text-gray-400">
                 We couldn&apos;t verify your payment. Please contact support if you were charged.
               </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
                 <button
-                  onClick={() => router.push("/billing")}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  onClick={() => router.push('/billing')}
+                  className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
                 >
                   Try Again
                 </button>
                 <button
-                  onClick={() => router.push("/")}
-                  className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
+                  onClick={() => router.push('/')}
+                  className="rounded-lg bg-gray-200 px-6 py-3 font-medium text-gray-900 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                 >
                   Go Home
                 </button>

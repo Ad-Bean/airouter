@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { PROVIDER_CONFIGS, getEnabledProviders } from "@/config/providers";
+import { NextResponse } from 'next/server';
+import { PROVIDER_CONFIGS, getEnabledProviders } from '@/config/providers';
 
 export async function GET() {
   const enabledProviders = getEnabledProviders();

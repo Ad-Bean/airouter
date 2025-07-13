@@ -1,16 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma, withDatabaseRetry } from '@/lib/prisma';
 
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id: sessionId } = await context.params;
@@ -28,11 +25,11 @@ export async function DELETE(
     });
 
     if (!chatSession) {
-      return NextResponse.json({ error: "Chat session not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Chat session not found' }, { status: 404 });
     }
 
     if (chatSession.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Hard delete the chat session (this will cascade delete messages)
@@ -42,16 +39,12 @@ export async function DELETE(
       });
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Chat session deleted successfully" 
+    return NextResponse.json({
+      success: true,
+      message: 'Chat session deleted successfully',
     });
-
   } catch (error) {
-    console.error("Error deleting chat session:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error('Error deleting chat session:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

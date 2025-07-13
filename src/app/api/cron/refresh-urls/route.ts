@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     // Basic auth check for cron job
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    
+
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
     while (totalProcessed < stats.expiredUrls) {
       const result = await bulkRefreshSignedUrls(batchSize);
-      
+
       totalProcessed += result.processed;
       totalSuccessful += result.successful;
       totalFailed += result.failed;
@@ -65,9 +65,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error refreshing signed URLs:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -55,9 +55,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error fetching credits:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch credits' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch credits' }, { status: 500 });
   }
 }

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const { packageId } = await request.json();
 
     // Find the credit package
-    const creditPackage = CREDIT_PACKAGES.find(pkg => pkg.id === packageId);
+    const creditPackage = CREDIT_PACKAGES.find((pkg) => pkg.id === packageId);
     if (!creditPackage) {
       return NextResponse.json({ error: 'Invalid package' }, { status: 400 });
     }
@@ -84,9 +84,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Checkout error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 });
   }
 }

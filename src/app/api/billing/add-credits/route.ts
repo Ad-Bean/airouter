@@ -8,13 +8,13 @@ import { stripe } from '@/lib/stripe';
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { sessionId } = await req.json();
-    
+
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
     }
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // Get the Stripe session
     const stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
-    
+
     if (stripeSession.payment_status !== 'paid') {
       return NextResponse.json({ error: 'Payment not completed' }, { status: 400 });
     }
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // Check if user matches session user
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!user || user.email !== session.user.email) {
@@ -50,16 +50,16 @@ export async function POST(req: NextRequest) {
       where: {
         userId,
         type: 'purchase',
-        stripePaymentId: stripeSession.payment_intent as string
-      }
+        stripePaymentId: stripeSession.payment_intent as string,
+      },
     });
 
     if (existingTransaction) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'Credits already added',
         creditsAdded: existingTransaction.amount,
         newBalance: user.credits,
-        transactionId: existingTransaction.id
+        transactionId: existingTransaction.id,
       });
     }
 
@@ -86,20 +86,19 @@ export async function POST(req: NextRequest) {
         metadata: {
           packageId,
           sessionId: stripeSession.id,
-          manualAddition: true
+          manualAddition: true,
         },
       },
     });
 
     console.log(`✅ Manually added ${credits} credits to user ${userId}`);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       creditsAdded: credits,
       newBalance: updatedUser.credits,
-      message: 'Credits added successfully'
+      message: 'Credits added successfully',
     });
-
   } catch (error) {
     console.error('❌ Error in manual credit addition:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

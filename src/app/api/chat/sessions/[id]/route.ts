@@ -1,18 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 // GET /api/chat/sessions/[id] - Get specific chat session with messages
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const params = await context.params;
@@ -25,53 +22,39 @@ export async function GET(
       include: {
         messages: {
           orderBy: {
-            createdAt: "asc",
+            createdAt: 'asc',
           },
         },
       },
     });
 
     if (!chatSession) {
-      return NextResponse.json(
-        { error: "Chat session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Chat session not found' }, { status: 404 });
     }
 
     return NextResponse.json({ session: chatSession });
   } catch (error) {
-    console.error("Error fetching chat session:", error);
+    console.error('Error fetching chat session:', error);
 
     // Check if it's a Prisma connection error
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "P5010"
-    ) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P5010') {
       return NextResponse.json(
-        { error: "Database temporarily unavailable. Please try again later." },
-        { status: 503 }
+        { error: 'Database temporarily unavailable. Please try again later.' },
+        { status: 503 },
       );
     }
 
-    return NextResponse.json(
-      { error: "Failed to fetch chat session" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch chat session' }, { status: 500 });
   }
 }
 
 // DELETE /api/chat/sessions/[id] - Delete chat session
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const params = await context.params;
@@ -84,10 +67,7 @@ export async function DELETE(
     });
 
     if (!chatSession) {
-      return NextResponse.json(
-        { error: "Chat session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Chat session not found' }, { status: 404 });
     }
 
     await prisma.chatSession.delete({
@@ -98,24 +78,18 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting chat session:", error);
-    return NextResponse.json(
-      { error: "Failed to delete chat session" },
-      { status: 500 }
-    );
+    console.error('Error deleting chat session:', error);
+    return NextResponse.json({ error: 'Failed to delete chat session' }, { status: 500 });
   }
 }
 
 // PATCH /api/chat/sessions/[id] - Update chat session (e.g., title)
-export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const params = await context.params;
@@ -129,10 +103,7 @@ export async function PATCH(
     });
 
     if (!chatSession) {
-      return NextResponse.json(
-        { error: "Chat session not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Chat session not found' }, { status: 404 });
     }
 
     const updatedSession = await prisma.chatSession.update({
@@ -147,10 +118,7 @@ export async function PATCH(
 
     return NextResponse.json({ session: updatedSession });
   } catch (error) {
-    console.error("Error updating chat session:", error);
-    return NextResponse.json(
-      { error: "Failed to update chat session" },
-      { status: 500 }
-    );
+    console.error('Error updating chat session:', error);
+    return NextResponse.json({ error: 'Failed to update chat session' }, { status: 500 });
   }
 }

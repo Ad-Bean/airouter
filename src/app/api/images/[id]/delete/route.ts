@@ -1,17 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
-import { deleteFromS3 } from "@/lib/s3";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma, withDatabaseRetry } from '@/lib/prisma';
+import { deleteFromS3 } from '@/lib/s3';
 
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id: imageId } = await context.params;
@@ -31,15 +28,15 @@ export async function DELETE(
     });
 
     if (!image) {
-      return NextResponse.json({ error: "Image not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Image not found' }, { status: 404 });
     }
 
     if (image.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     if (image.deleted) {
-      return NextResponse.json({ error: "Image already deleted" }, { status: 400 });
+      return NextResponse.json({ error: 'Image already deleted' }, { status: 400 });
     }
 
     // Soft delete the image in the database
@@ -66,16 +63,12 @@ export async function DELETE(
       });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Image deleted successfully" 
+    return NextResponse.json({
+      success: true,
+      message: 'Image deleted successfully',
     });
-
   } catch (error) {
-    console.error("Error deleting image:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error('Error deleting image:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

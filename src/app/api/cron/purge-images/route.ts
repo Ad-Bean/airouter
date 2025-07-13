@@ -1,22 +1,26 @@
 import { NextResponse } from 'next/server';
-import { bulkDeleteExpiredImages, cleanupOrphanedRecords, setAutoDeleteForFreeUsers } from '@/lib/storage-utils';
+import {
+  bulkDeleteExpiredImages,
+  cleanupOrphanedRecords,
+  setAutoDeleteForFreeUsers,
+} from '@/lib/storage-utils';
 
 export async function GET(request: Request) {
   try {
     // Basic auth check for cron job (should be called by your cron service)
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    
+
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Set auto-delete for free users first
     const autoDeleteCount = await setAutoDeleteForFreeUsers();
-    
+
     // Delete expired images
     const deleteResult = await bulkDeleteExpiredImages();
-    
+
     // Clean up orphaned records
     const orphanedCount = await cleanupOrphanedRecords();
 
@@ -42,9 +46,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error in purge operation:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

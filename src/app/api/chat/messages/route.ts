@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma, withDatabaseRetry } from '@/lib/prisma';
 
 // POST /api/chat/messages - Save a chat message
 export async function POST(request: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { sessionId, role, content, type, imageUrls } = await request.json();
@@ -21,11 +21,11 @@ export async function POST(request: NextRequest) {
       if (!chatSessionId) {
         // Generate title from first user message
         const title =
-          role === "user" && content
+          role === 'user' && content
             ? content.length > 50
-              ? content.substring(0, 50) + "..."
+              ? content.substring(0, 50) + '...'
               : content
-            : "New Chat";
+            : 'New Chat';
 
         const newSession = await prisma.chatSession.create({
           data: {
@@ -57,25 +57,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Error saving chat message:", error);
+    console.error('Error saving chat message:', error);
 
     // Check if it's a Prisma connection error
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "P5010"
-    ) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P5010') {
       return NextResponse.json(
-        { error: "Database temporarily unavailable. Message not saved." },
-        { status: 503 }
+        { error: 'Database temporarily unavailable. Message not saved.' },
+        { status: 503 },
       );
     }
 
-    return NextResponse.json(
-      { error: "Failed to save chat message" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save chat message' }, { status: 500 });
   }
 }
 
@@ -85,17 +77,14 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get("sessionId");
+    const sessionId = searchParams.get('sessionId');
 
     if (!sessionId) {
-      return NextResponse.json(
-        { error: "Session ID required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
     }
 
     const messages = await withDatabaseRetry(async () => {
@@ -106,16 +95,13 @@ export async function GET(request: NextRequest) {
             userId: session.user.id,
           },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: 'asc' },
       });
     });
 
     return NextResponse.json({ messages });
   } catch (error) {
-    console.error("Error fetching chat messages:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch chat messages" },
-      { status: 500 }
-    );
+    console.error('Error fetching chat messages:', error);
+    return NextResponse.json({ error: 'Failed to fetch chat messages' }, { status: 500 });
   }
 }

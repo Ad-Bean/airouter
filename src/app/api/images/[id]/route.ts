@@ -1,31 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { refreshSignedUrl } from "@/lib/s3";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { refreshSignedUrl } from '@/lib/s3';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Max-Age": "86400",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
     },
   });
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    
+
     // Add more robust ID validation
     if (!id || id.length < 1) {
-      return NextResponse.json({ error: "Invalid image ID" }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid image ID' }, { status: 400 });
     }
 
     const session = await getServerSession(authOptions);
@@ -50,7 +47,7 @@ export async function GET(
         },
       });
     } catch (dbError) {
-      console.error("Database error when fetching image:", dbError);
+      console.error('Database error when fetching image:', dbError);
 
       // If database is down, return a placeholder image
       const placeholderSvg = `
@@ -70,8 +67,8 @@ export async function GET(
 
       return new NextResponse(placeholderSvg, {
         headers: {
-          "Content-Type": "image/svg+xml",
-          "Cache-Control": "no-cache",
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'no-cache',
         },
       });
     }
@@ -96,8 +93,8 @@ export async function GET(
       return new NextResponse(placeholderSvg, {
         status: 200, // Return 200 instead of 404 to avoid breaking UI
         headers: {
-          "Content-Type": "image/svg+xml",
-          "Cache-Control": "no-cache",
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'no-cache',
         },
       });
     }
@@ -122,8 +119,8 @@ export async function GET(
       return new NextResponse(expiredSvg, {
         status: 200,
         headers: {
-          "Content-Type": "image/svg+xml",
-          "Cache-Control": "no-cache",
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'no-cache',
         },
       });
     }
@@ -147,12 +144,12 @@ export async function GET(
         return new NextResponse(unauthorizedSvg, {
           status: 200,
           headers: {
-            "Content-Type": "image/svg+xml",
-            "Cache-Control": "no-cache",
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'no-cache',
           },
         });
       }
-      
+
       // Check if user owns the image
       if (session.user.id !== image.userId) {
         const forbiddenSvg = `
@@ -170,8 +167,8 @@ export async function GET(
         return new NextResponse(forbiddenSvg, {
           status: 200,
           headers: {
-            "Content-Type": "image/svg+xml",
-            "Cache-Control": "no-cache",
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'no-cache',
           },
         });
       }
@@ -181,12 +178,12 @@ export async function GET(
     if (image.s3Key && image.s3Bucket) {
       try {
         let signedUrl = image.s3Url;
-        
+
         // Check if signed URL needs refresh
         if (!signedUrl || !image.expiresAt || image.expiresAt <= new Date()) {
           const refreshResult = await refreshSignedUrl(image.s3Key);
           signedUrl = refreshResult.signedUrl;
-          
+
           // Update database with new signed URL
           await prisma.generatedImage.update({
             where: { id },
@@ -205,27 +202,27 @@ export async function GET(
           // Add timeout to prevent hanging requests
           signal: AbortSignal.timeout(10000),
         });
-        
+
         if (!response.ok) {
           console.error(`Failed to fetch S3 image: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
-        
+
         const imageBuffer = await response.arrayBuffer();
         const headers = new Headers();
-        headers.set("Content-Type", image.mimeType || "image/png");
-        headers.set("Cache-Control", "public, max-age=3600");
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET");
-        headers.set("Access-Control-Allow-Headers", "Content-Type");
-        headers.set("X-Content-Type-Options", "nosniff");
-        
+        headers.set('Content-Type', image.mimeType || 'image/png');
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('Access-Control-Allow-Origin', '*');
+        headers.set('Access-Control-Allow-Methods', 'GET');
+        headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        headers.set('X-Content-Type-Options', 'nosniff');
+
         return new NextResponse(imageBuffer, {
           status: 200,
           headers,
         });
       } catch (s3Error) {
-        console.error("Error with S3 signed URL:", s3Error);
+        console.error('Error with S3 signed URL:', s3Error);
         // Continue to fallback methods
       }
     }
@@ -234,20 +231,17 @@ export async function GET(
     if (image.imagePath && image.mimeType) {
       // Serve from local file system
       try {
-        const fs = await import("fs/promises");
-        const path = await import("path");
-        const filePath = path.join(process.cwd(), "public", image.imagePath);
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const filePath = path.join(process.cwd(), 'public', image.imagePath);
         const fileBuffer = await fs.readFile(filePath);
 
         const headers = new Headers();
-        headers.set("Content-Type", image.mimeType);
-        headers.set("Cache-Control", "public, max-age=31536000, immutable");
+        headers.set('Content-Type', image.mimeType);
+        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 
         if (image.filename) {
-          headers.set(
-            "Content-Disposition",
-            `inline; filename="${image.filename}"`
-          );
+          headers.set('Content-Disposition', `inline; filename="${image.filename}"`);
         }
 
         return new NextResponse(new Uint8Array(fileBuffer), {
@@ -255,7 +249,7 @@ export async function GET(
           headers,
         });
       } catch (fileError) {
-        console.error("Error reading local file:", fileError);
+        console.error('Error reading local file:', fileError);
         // Continue to next fallback
       }
     }
@@ -269,27 +263,27 @@ export async function GET(
           },
           signal: AbortSignal.timeout(10000),
         });
-        
+
         if (!response.ok) {
           console.error(`Failed to fetch legacy image: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
-        
+
         const imageBuffer = await response.arrayBuffer();
         const headers = new Headers();
-        headers.set("Content-Type", image.mimeType || "image/png");
-        headers.set("Cache-Control", "public, max-age=3600");
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET");
-        headers.set("Access-Control-Allow-Headers", "Content-Type");
-        headers.set("X-Content-Type-Options", "nosniff");
-        
+        headers.set('Content-Type', image.mimeType || 'image/png');
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('Access-Control-Allow-Origin', '*');
+        headers.set('Access-Control-Allow-Methods', 'GET');
+        headers.set('Access-Control-Allow-Headers', 'Content-Type');
+        headers.set('X-Content-Type-Options', 'nosniff');
+
         return new NextResponse(imageBuffer, {
           status: 200,
           headers,
         });
       } catch (error) {
-        console.error("Error fetching legacy image URL:", error);
+        console.error('Error fetching legacy image URL:', error);
         // Continue to fallback
       }
     }
@@ -313,13 +307,13 @@ export async function GET(
     return new NextResponse(errorSvg, {
       status: 200,
       headers: {
-        "Content-Type": "image/svg+xml",
-        "Cache-Control": "no-cache",
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'no-cache',
       },
     });
   } catch (error) {
-    console.error("Error serving image:", error);
-    
+    console.error('Error serving image:', error);
+
     // Even in error cases, return a placeholder instead of JSON error
     const errorSvg = `
       <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
@@ -339,8 +333,8 @@ export async function GET(
     return new NextResponse(errorSvg, {
       status: 200,
       headers: {
-        "Content-Type": "image/svg+xml",
-        "Cache-Control": "no-cache",
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'no-cache',
       },
     });
   }

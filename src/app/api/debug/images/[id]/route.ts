@@ -1,19 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
     // Only allow debug access to authenticated users
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const image = await prisma.generatedImage.findUnique({
@@ -38,7 +35,7 @@ export async function GET(
     });
 
     if (!image) {
-      return NextResponse.json({ error: "Image not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Image not found' }, { status: 404 });
     }
 
     // Debug information
@@ -56,19 +53,23 @@ export async function GET(
       currentTime: new Date().toISOString(),
       environment: {
         NODE_ENV: process.env.NODE_ENV,
-        hasS3Config: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET_NAME),
+        hasS3Config: !!(
+          process.env.AWS_ACCESS_KEY_ID &&
+          process.env.AWS_SECRET_ACCESS_KEY &&
+          process.env.AWS_S3_BUCKET_NAME
+        ),
       },
     };
 
     return NextResponse.json(debugInfo, { status: 200 });
   } catch (error) {
-    console.error("Error in image debug route:", error);
+    console.error('Error in image debug route:', error);
     return NextResponse.json(
-      { 
-        error: "Failed to get debug info",
-        details: error instanceof Error ? error.message : "Unknown error"
+      {
+        error: 'Failed to get debug info',
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

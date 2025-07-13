@@ -8,7 +8,7 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
   console.log('🔔 WEBHOOK RECEIVED - Starting webhook processing');
-  
+
   const body = await req.text();
   const headersList = await headers();
   const sig = headersList.get('stripe-signature');
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   console.log('📋 Webhook details:', {
     bodyLength: body.length,
     hasSignature: !!sig,
-    endpointSecretExists: !!endpointSecret
+    endpointSecretExists: !!endpointSecret,
   });
 
   let event: Stripe.Event;
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   console.log('📨 Processing event:', {
     type: event.type,
     id: event.id,
-    created: event.created
+    created: event.created,
   });
 
   // Handle the event
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   try {
     console.log('🛒 Processing checkout completion for session:', session.id);
-    
+
     const userId = session.metadata?.userId;
     const credits = parseInt(session.metadata?.credits || '0');
     const packageId = session.metadata?.packageId;
@@ -72,7 +72,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       userId,
       credits,
       packageId,
-      allMetadata: session.metadata
+      allMetadata: session.metadata,
     });
 
     if (!userId || !credits) {
@@ -85,20 +85,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       where: {
         userId,
         stripePaymentId: session.payment_intent as string,
-        type: 'purchase'
-      }
+        type: 'purchase',
+      },
     });
 
     if (existingTransaction) {
       console.log('⚠️ Credits already added for this payment:', {
         transactionId: existingTransaction.id,
-        paymentId: session.payment_intent
+        paymentId: session.payment_intent,
       });
       return;
     }
 
     console.log('💰 Adding credits to user account...');
-    
+
     // Add credits to user account
     const user = await prisma.user.update({
       where: { id: userId },
@@ -113,7 +113,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.log('✅ Credits added successfully:', {
       userId,
       creditsAdded: credits,
-      newBalance: user.credits
+      newBalance: user.credits,
     });
 
     // Create transaction record
@@ -135,7 +135,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.log('📝 Transaction record created:', {
       transactionId: transaction.id,
       amount: credits,
-      balanceAfter: user.credits
+      balanceAfter: user.credits,
     });
 
     console.log(`✅ Successfully added ${credits} credits to user ${userId}`);

@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
-import { uploadImageToS3 } from "@/lib/s3";
-import { getAutoDeleteDate } from "@/lib/storage-utils";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma, withDatabaseRetry } from '@/lib/prisma';
+import { uploadImageToS3 } from '@/lib/s3';
+import { getAutoDeleteDate } from '@/lib/storage-utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,86 +12,67 @@ export async function POST(request: NextRequest) {
 
     // Require authentication - no fallback to test user
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const userId = session.user.id;
-    console.log("Saving image for user:", userId, session.user.email);
+    console.log('Saving image for user:', userId, session.user.email);
 
-    const { prompt, imageData, provider, model, width, height, steps } =
-      requestData;
+    const { prompt, imageData, provider, model, width, height, steps } = requestData;
 
     // Validate required fields
-    if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return NextResponse.json(
-        { error: "Prompt is required and must be a non-empty string" },
-        { status: 400 }
+        { error: 'Prompt is required and must be a non-empty string' },
+        { status: 400 },
       );
     }
 
-    if (!provider || typeof provider !== "string") {
+    if (!provider || typeof provider !== 'string') {
       return NextResponse.json(
-        { error: "Provider is required and must be a string" },
-        { status: 400 }
+        { error: 'Provider is required and must be a string' },
+        { status: 400 },
       );
     }
 
     // Validate optional numeric fields
-    if (width !== undefined && (typeof width !== "number" || width <= 0)) {
-      return NextResponse.json(
-        { error: "Width must be a positive number" },
-        { status: 400 }
-      );
+    if (width !== undefined && (typeof width !== 'number' || width <= 0)) {
+      return NextResponse.json({ error: 'Width must be a positive number' }, { status: 400 });
     }
 
-    if (height !== undefined && (typeof height !== "number" || height <= 0)) {
-      return NextResponse.json(
-        { error: "Height must be a positive number" },
-        { status: 400 }
-      );
+    if (height !== undefined && (typeof height !== 'number' || height <= 0)) {
+      return NextResponse.json({ error: 'Height must be a positive number' }, { status: 400 });
     }
 
-    if (steps !== undefined && (typeof steps !== "number" || steps <= 0)) {
-      return NextResponse.json(
-        { error: "Steps must be a positive number" },
-        { status: 400 }
-      );
+    if (steps !== undefined && (typeof steps !== 'number' || steps <= 0)) {
+      return NextResponse.json({ error: 'Steps must be a positive number' }, { status: 400 });
     }
 
     let imageBuffer: Buffer;
     let base64Data: string;
-    let mimeType = "image/png";
+    let mimeType = 'image/png';
 
     // Validate imageData
-    if (!imageData || typeof imageData !== "string") {
-      return NextResponse.json(
-        { error: "Invalid image data format" },
-        { status: 400 }
-      );
+    if (!imageData || typeof imageData !== 'string') {
+      return NextResponse.json({ error: 'Invalid image data format' }, { status: 400 });
     }
 
     try {
-      if (imageData.startsWith("data:")) {
-        const [header, extractedBase64] = imageData.split(",");
+      if (imageData.startsWith('data:')) {
+        const [header, extractedBase64] = imageData.split(',');
         const mimeMatch = header.match(/data:([^;]+)/);
         if (mimeMatch) {
           mimeType = mimeMatch[1];
         }
         base64Data = extractedBase64;
-        imageBuffer = Buffer.from(extractedBase64, "base64");
+        imageBuffer = Buffer.from(extractedBase64, 'base64');
       } else {
         base64Data = imageData;
-        imageBuffer = Buffer.from(imageData, "base64");
+        imageBuffer = Buffer.from(imageData, 'base64');
       }
     } catch (bufferError) {
-      console.error("Error creating buffer from image data:", bufferError);
-      return NextResponse.json(
-        { error: "Invalid base64 image data" },
-        { status: 400 }
-      );
+      console.error('Error creating buffer from image data:', bufferError);
+      return NextResponse.json({ error: 'Invalid base64 image data' }, { status: 400 });
     }
 
     // Check image size limit (10MB)
@@ -99,16 +80,14 @@ export async function POST(request: NextRequest) {
     if (imageBuffer.length > maxSize) {
       return NextResponse.json(
         {
-          error: `Image too large. Maximum size is ${
-            maxSize / (1024 * 1024)
-          }MB`,
+          error: `Image too large. Maximum size is ${maxSize / (1024 * 1024)}MB`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Generate filename
-    const extension = mimeType.split("/")[1] || "png";
+    const extension = mimeType.split('/')[1] || 'png';
     const filename = `${provider}_${Date.now()}.${extension}`;
 
     // Upload to S3
@@ -120,11 +99,11 @@ export async function POST(request: NextRequest) {
         !process.env.AWS_SECRET_ACCESS_KEY ||
         !process.env.AWS_S3_BUCKET_NAME
       ) {
-        console.warn("S3 not configured, creating mock URLs for development");
+        console.warn('S3 not configured, creating mock URLs for development');
         s3Result = {
           key: `mock/${filename}`,
           url: `/api/images/mock/${filename}`,
-          bucket: "development-bucket",
+          bucket: 'development-bucket',
           signedUrl: `/api/images/mock/${filename}`,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         };
@@ -137,21 +116,21 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (s3Error) {
-      console.error("S3 upload failed:", s3Error);
+      console.error('S3 upload failed:', s3Error);
       // Fallback to mock URLs for development
-      console.warn("Falling back to mock URLs for development");
+      console.warn('Falling back to mock URLs for development');
       s3Result = {
         key: `mock/${filename}`,
         url: `/api/images/mock/${filename}`,
-        bucket: "development-bucket",
+        bucket: 'development-bucket',
         signedUrl: `/api/images/mock/${filename}`,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       };
     }
 
-    console.log("Attempting to save image with data:", {
+    console.log('Attempting to save image with data:', {
       userId,
-      prompt: prompt.trim().substring(0, 100) + "...",
+      prompt: prompt.trim().substring(0, 100) + '...',
       imageDataSize: imageBuffer.length,
       base64Size: base64Data.length,
       mimeType,
@@ -174,15 +153,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      console.error("User not found:", userId);
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      console.error('User not found:', userId);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Save to database with retry logic
     const savedImage = await withDatabaseRetry(async () => {
       // Set auto-delete based on user type
       const autoDeleteAt = getAutoDeleteDate(user.userType);
-      
+
       return await prisma.generatedImage.create({
         data: {
           userId: userId,
@@ -219,32 +198,32 @@ export async function POST(request: NextRequest) {
           displayUrl: `/api/images/${savedImage.id}`,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
-    console.error("Save image error:", error);
+    console.error('Save image error:', error);
 
     // Log more detailed error information
     if (error instanceof Error) {
-      console.error("Error name:", error.name);
-      console.error("Error message:", error.message);
-      console.error("Error stack:", error.stack);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
     }
 
     // Check if it's a Prisma error
-    if (error && typeof error === "object" && "code" in error) {
-      console.error("Prisma error code:", error.code);
-      if ("meta" in error) {
-        console.error("Prisma error meta:", error.meta);
+    if (error && typeof error === 'object' && 'code' in error) {
+      console.error('Prisma error code:', error.code);
+      if ('meta' in error) {
+        console.error('Prisma error meta:', error.meta);
       }
     }
 
     return NextResponse.json(
       {
-        error: "Failed to save image",
+        error: 'Failed to save image',
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

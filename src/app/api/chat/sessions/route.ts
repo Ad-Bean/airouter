@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 // GET /api/chat/sessions - Get all chat sessions for user
 export async function GET() {
@@ -9,7 +9,7 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const chatSessions = await prisma.chatSession.findMany({
@@ -19,7 +19,7 @@ export async function GET() {
       include: {
         messages: {
           orderBy: {
-            createdAt: "asc",
+            createdAt: 'asc',
           },
           take: 1, // Only get first message for title preview
         },
@@ -30,17 +30,14 @@ export async function GET() {
         },
       },
       orderBy: {
-        updatedAt: "desc",
+        updatedAt: 'desc',
       },
     });
 
     return NextResponse.json({ sessions: chatSessions });
   } catch (error) {
-    console.error("Error fetching chat sessions:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch chat sessions" },
-      { status: 500 }
-    );
+    console.error('Error fetching chat sessions:', error);
+    return NextResponse.json({ error: 'Failed to fetch chat sessions' }, { status: 500 });
   }
 }
 
@@ -50,7 +47,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { title } = await request.json();
@@ -58,16 +55,13 @@ export async function POST(request: NextRequest) {
     const chatSession = await prisma.chatSession.create({
       data: {
         userId: session.user.id,
-        title: title || "New Chat",
+        title: title || 'New Chat',
       },
     });
 
     return NextResponse.json({ session: chatSession });
   } catch (error) {
-    console.error("Error creating chat session:", error);
-    return NextResponse.json(
-      { error: "Failed to create chat session" },
-      { status: 500 }
-    );
+    console.error('Error creating chat session:', error);
+    return NextResponse.json({ error: 'Failed to create chat session' }, { status: 500 });
   }
 }

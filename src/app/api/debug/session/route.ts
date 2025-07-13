@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
+
     // Also check what's in the database
     const users = await prisma.user.findMany({
       select: {
@@ -17,7 +17,7 @@ export async function GET() {
       },
       take: 5,
     });
-    
+
     const sessions = await prisma.session.findMany({
       select: {
         id: true,
@@ -34,7 +34,7 @@ export async function GET() {
       },
       take: 5,
     });
-    
+
     return NextResponse.json({
       session,
       hasSession: !!session,
@@ -47,9 +47,12 @@ export async function GET() {
       dbSessions: sessions,
     });
   } catch (error) {
-    return NextResponse.json({
-      error: "Session check failed",
-      details: error instanceof Error ? error.message : "Unknown error",
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Session check failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 },
+    );
   }
 }
