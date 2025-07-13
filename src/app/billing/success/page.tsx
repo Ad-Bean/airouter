@@ -147,9 +147,23 @@ function BillingSuccessContent() {
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
                 Payment Successful!
               </h1>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">
                 Thank you for your purchase. Your credits have been added to your account.
               </p>
+              
+              {/* Tier Upgrade Notification */}
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-center mb-2">
+                  <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400 mr-2" />
+                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-300">
+                    Account Upgraded to Paid Tier! 🎉
+                  </h3>
+                </div>
+                <div className="text-center text-sm text-green-700 dark:text-green-300 space-y-1">
+                  <p>✨ Your images now stay for 7 days instead of 10 minutes</p>
+                  <p>🚀 Enjoy premium features and enhanced experience</p>
+                </div>
+              </div>
               
               {paymentDetails && (
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6">

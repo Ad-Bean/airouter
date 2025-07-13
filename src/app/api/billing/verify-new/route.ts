@@ -102,7 +102,7 @@ export async function GET(request: Request) {
         credits: {
           increment: totalCredits,
         },
-        // TODO: Add userType: 'paid' after schema is updated
+        userType: 'paid', // Upgrade user to paid tier
       },
     });
 

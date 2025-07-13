@@ -70,14 +70,12 @@ async function saveImageToDatabase({
   // Save to database
   const savedImage = await withDatabaseRetry(async () => {
     // Get user type to determine auto-delete behavior
-    // TODO: Fix this after Prisma client is updated
-    // const user = await prisma.user.findUnique({
-    //   where: { id: userId },
-    //   select: { userType: true },
-    // });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { userType: true },
+    });
 
-    // const userType = user?.userType || "free";
-    const userType = "free"; // Temporary default
+    const userType = user?.userType || "free";
     
     // Calculate auto-delete date based on user type
     const autoDeleteAt = userType === "free" 

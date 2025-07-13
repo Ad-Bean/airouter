@@ -187,7 +187,7 @@ export default function DashboardPage() {
                     Account
                   </p>
                   <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
-                    Free Plan
+                    {(session?.user as { userType?: string })?.userType === "paid" ? "Paid Plan" : "Free Plan"}
                   </p>
                 </div>
                 <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">

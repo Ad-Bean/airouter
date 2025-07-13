@@ -62,6 +62,12 @@ export const authOptions = {
       // With database strategy, user object is available directly
       if (user && session?.user) {
         session.user.id = user.id;
+        // Fetch the latest user data to get userType
+        const userData = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { userType: true },
+        });
+        session.user.userType = userData?.userType || "free";
       }
       return session;
     },

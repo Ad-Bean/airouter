@@ -106,7 +106,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         credits: {
           increment: credits,
         },
-        // TODO: Add userType: 'paid' after schema is updated
+        userType: 'paid', // Upgrade user to paid tier
       },
     });
 

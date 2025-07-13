@@ -189,18 +189,33 @@ export default function BillingPage() {
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${
+            (session?.user as { userType?: string })?.userType === "paid" 
+              ? "ring-2 ring-green-500 bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-800" 
+              : ""
+          }`}>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Plan
               </h3>
-              <Settings className="w-6 h-6 text-gray-500" />
+              <div className="flex items-center">
+                {(session?.user as { userType?: string })?.userType === "paid" && (
+                  <Star className="w-5 h-5 text-yellow-500 mr-1" />
+                )}
+                <Settings className="w-6 h-6 text-gray-500" />
+              </div>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white capitalize">
-              Free
+            <div className={`text-2xl font-bold capitalize ${
+              (session?.user as { userType?: string })?.userType === "paid"
+                ? "text-green-600 dark:text-green-400"
+                : "text-gray-900 dark:text-white"
+            }`}>
+              {(session?.user as { userType?: string })?.userType === "paid" ? "Paid Plan" : "Free Plan"}
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Current subscription plan
+              {(session?.user as { userType?: string })?.userType === "paid" 
+                ? "Enjoy premium features and 7-day image storage" 
+                : "Upgrade for enhanced features"}
             </p>
           </div>
 
