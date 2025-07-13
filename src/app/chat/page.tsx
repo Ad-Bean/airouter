@@ -96,6 +96,11 @@ function ChatPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Additional scroll trigger for when user sends a message
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
   // Load session messages
   const loadChatSession = useCallback(async (sessionId: string) => {
     try {
@@ -148,9 +153,24 @@ function ChatPageContent() {
 
   // Polling for message updates during generation
   useEffect(() => {
-    if (!isGenerating || !currentSessionId) return;
+    if (!isGenerating) return;
+
+    let pollAttempts = 0;
+    const maxPollAttempts = 40;
 
     const pollMessages = async () => {
+      pollAttempts++;
+
+      if (!currentSessionId) {
+        if (pollAttempts >= maxPollAttempts) {
+          console.warn('Max polling attempts reached, stopping generation');
+          setIsGenerating(false);
+          setErrorMessage('Unable to retrieve generation results. Please try again.');
+          setTimeout(() => setErrorMessage(null), 5000);
+        }
+        return;
+      }
+
       try {
         const response = await fetch(`/api/chat/messages?sessionId=${currentSessionId}`, {
           signal: AbortSignal.timeout(10000), // 10 second timeout
@@ -178,9 +198,54 @@ function ChatPageContent() {
               timestamp: new Date(msg.createdAt),
             }),
           );
-          setMessages(updatedMessages);
 
-          // Check if any message is still generating
+          setMessages((prevMessages) => {
+            if (updatedMessages.length === 0) {
+              return prevMessages;
+            }
+
+            const mergedMessages = [...prevMessages];
+
+            updatedMessages.forEach((serverMsg) => {
+              const existingIndex = mergedMessages.findIndex(
+                (msg) =>
+                  msg.id === serverMsg.id ||
+                  (msg.role === serverMsg.role && msg.content === serverMsg.content),
+              );
+
+              if (existingIndex !== -1) {
+                // 更新现有消息，但保留前端的即时性
+                const existingMsg = mergedMessages[existingIndex];
+                mergedMessages[existingIndex] = {
+                  ...existingMsg,
+                  ...serverMsg,
+                  // 保留更早的 timestamp
+                  timestamp:
+                    existingMsg.timestamp.getTime() < serverMsg.timestamp.getTime()
+                      ? existingMsg.timestamp
+                      : serverMsg.timestamp,
+                };
+              } else {
+                // 添加新消息
+                mergedMessages.push(serverMsg);
+              }
+            });
+
+            // 检查是否有实际变化
+            const hasChanges =
+              mergedMessages.some((msg, index) => {
+                const prevMsg = prevMessages[index];
+                return (
+                  !prevMsg ||
+                  prevMsg.status !== msg.status ||
+                  prevMsg.imageUrls?.length !== msg.imageUrls?.length ||
+                  JSON.stringify(prevMsg.metadata) !== JSON.stringify(msg.metadata)
+                );
+              }) || mergedMessages.length !== prevMessages.length;
+
+            return hasChanges ? mergedMessages : prevMessages;
+          });
+
           const stillGenerating = updatedMessages.some((msg) => msg.status === 'generating');
           if (!stillGenerating) {
             setIsGenerating(false);
@@ -197,7 +262,9 @@ function ChatPageContent() {
       }
     };
 
-    const interval = setInterval(pollMessages, 5000); // Poll every 5 seconds
+    pollMessages();
+
+    const interval = setInterval(pollMessages, 3000);
     return () => clearInterval(interval);
   }, [isGenerating, currentSessionId]);
 
@@ -232,49 +299,14 @@ function ChatPageContent() {
     }));
   };
 
-  const ensureSession = useCallback(async (): Promise<string | null> => {
-    if (currentSessionId) {
-      return currentSessionId;
-    }
-
-    try {
-      const response = await fetch('/api/chat/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: input.trim().slice(0, 50) || 'New Chat',
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.session?.id) {
-          const newSessionId = data.session.id;
-          setCurrentSessionId(newSessionId);
-          router.push(`/chat?session=${newSessionId}`, { scroll: false });
-          return newSessionId;
-        }
-      }
-    } catch (error) {
-      console.error('Failed to create session:', error);
-    }
-
-    return null;
-  }, [currentSessionId, router, input]);
-
   const handleSendMessage = useCallback(
     async (messageText?: string, providers?: Provider[]) => {
       const text = messageText || input.trim();
       if (!text || isGenerating) return;
 
       setErrorMessage(null);
-      const sessionId = await ensureSession();
-
-      if (!sessionId) {
-        setErrorMessage('Failed to create chat session. Please try again.');
-        setTimeout(() => setErrorMessage(null), 5000);
-        return;
-      }
+      setInput('');
+      setIsGenerating(true);
 
       const userMessage: Message = {
         id: Date.now().toString(),
@@ -284,7 +316,6 @@ function ChatPageContent() {
         timestamp: new Date(),
       };
 
-      // Create immediate assistant message with generating status for smooth UI
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -302,40 +333,75 @@ function ChatPageContent() {
       };
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
-      setInput('');
-      setIsGenerating(true);
+      scrollToBottom();
 
       try {
-        const userResponse = await fetch('/api/chat/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            role: 'user',
-            content: text,
-            type: 'text',
-          }),
-        });
+        let sessionId = currentSessionId;
+        if (!sessionId) {
+          try {
+            const response = await fetch('/api/chat/sessions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: text.trim().slice(0, 50) || 'New Chat',
+              }),
+            });
 
-        if (!userResponse.ok) {
-          throw new Error('Failed to save user message');
+            if (response.ok) {
+              const data = await response.json();
+              if (data.session?.id) {
+                sessionId = data.session.id;
+                setCurrentSessionId(sessionId);
+                router.push(`/chat?session=${sessionId}`, { scroll: false });
+              }
+            }
+          } catch (error) {
+            console.error('Failed to create session:', error);
+          }
         }
 
-        const generateResponse = await fetch('/api/chat/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            prompt: text,
-            providers: providers || selectedProviders,
-            models: selectedModels,
-            imageCount,
-            messageId: assistantMessage.id, // Pass the frontend message ID
-          }),
-        });
+        if (!sessionId) {
+          throw new Error('Failed to create chat session. Please try again.');
+        }
 
-        if (!generateResponse.ok) {
-          const errorData = await generateResponse.json();
+        const [userResponse, generateResponse] = await Promise.allSettled([
+          fetch('/api/chat/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              role: 'user',
+              content: text,
+              type: 'text',
+            }),
+          }),
+          fetch('/api/chat/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              prompt: text,
+              providers: providers || selectedProviders,
+              models: selectedModels,
+              imageCount,
+              messageId: assistantMessage.id,
+            }),
+          }),
+        ]);
+
+        if (
+          userResponse.status === 'rejected' ||
+          (userResponse.status === 'fulfilled' && !userResponse.value.ok)
+        ) {
+          console.warn('Failed to save user message, but continuing with generation');
+        }
+
+        if (generateResponse.status === 'rejected') {
+          throw new Error('Failed to start image generation');
+        }
+
+        if (generateResponse.status === 'fulfilled' && !generateResponse.value.ok) {
+          const errorData = await generateResponse.value.json();
           throw new Error(errorData.error || 'Failed to start image generation');
         }
       } catch (error) {
@@ -345,7 +411,6 @@ function ChatPageContent() {
         setTimeout(() => setErrorMessage(null), 5000);
         setIsGenerating(false);
 
-        // Update the assistant message to show error state
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessage.id
@@ -359,7 +424,16 @@ function ChatPageContent() {
         );
       }
     },
-    [input, isGenerating, ensureSession, selectedProviders, selectedModels, imageCount],
+    [
+      input,
+      isGenerating,
+      currentSessionId,
+      router,
+      selectedProviders,
+      selectedModels,
+      imageCount,
+      scrollToBottom,
+    ],
   );
 
   const toggleTheme = () => {
