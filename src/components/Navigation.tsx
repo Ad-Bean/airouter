@@ -39,9 +39,8 @@ export function Navigation({
         )}
 
         <div
-          className={`hidden md:flex items-center space-x-8 ${
-            hideLogo ? "ml-auto" : ""
-          }`}
+          className={`hidden md:flex items-center space-x-8 ${hideLogo ? "ml-auto" : ""
+            }`}
         >
           <a
             href="#features"
@@ -49,12 +48,12 @@ export function Navigation({
           >
             Features
           </a>
-          <a
-            href="#models"
+          <Link
+            href="/models"
             className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
           >
             Models
-          </a>
+          </Link>
           <a
             href="#pricing"
             className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
@@ -103,6 +102,13 @@ export function Navigation({
                     Chat
                   </Link>
                   <Link
+                    href="/billing"
+                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    Billing
+                  </Link>
+                  <Link
                     href="/dashboard"
                     className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                     onClick={() => setShowDropdown(false)}
@@ -116,13 +122,7 @@ export function Navigation({
                   >
                     My Images
                   </Link>
-                  <Link
-                    href="/billing"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={() => setShowDropdown(false)}
-                  >
-                    Billing
-                  </Link>
+
                   <button
                     onClick={() => {
                       signOut();
@@ -156,9 +156,8 @@ export function Navigation({
 
         {/* Mobile menu button */}
         <div
-          className={`md:hidden flex items-center space-x-2 ${
-            hideLogo ? "ml-auto" : ""
-          }`}
+          className={`md:hidden flex items-center space-x-2 ${hideLogo ? "ml-auto" : ""
+            }`}
         >
           <button
             onClick={onToggleTheme}

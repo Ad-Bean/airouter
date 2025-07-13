@@ -59,43 +59,7 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
       },
     ],
   },
-  stability: {
-    name: "stability",
-    displayName: "Stability AI",
-    shortDescription: "SDXL",
-    iconName: "Sparkles",
-    color: "from-teal-500 to-emerald-600",
-    badgeColor: "bg-green-500",
-    enabled: !!process.env.STABILITY_API_KEY,
-    models: [
-      {
-        id: "stable-diffusion-xl-1024-v1-0",
-        name: "SDXL 1.0",
-        description: "High quality, latest version",
-      },
-      {
-        id: "stable-diffusion-v1-6",
-        name: "SD 1.6",
-        description: "Fast and reliable",
-      },
-    ],
-  },
-  replicate: {
-    name: "replicate",
-    displayName: "Replicate (SDXL)",
-    shortDescription: "SDXL",
-    iconName: "Paintbrush",
-    color: "from-violet-500 to-indigo-600",
-    badgeColor: "bg-purple-500",
-    enabled: !!process.env.REPLICATE_API_TOKEN,
-    models: [
-      {
-        id: "sdxl",
-        name: "Stable Diffusion XL",
-        description: "Open source, customizable",
-      },
-    ],
-  },
+
   google: {
     name: "google",
     displayName: "Google Imagen",

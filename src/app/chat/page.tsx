@@ -16,6 +16,7 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
+  CreditCard,
 } from "lucide-react";
 import Image from "next/image";
 import { ChatNavigation } from "@/components/ChatNavigation";
@@ -412,47 +413,56 @@ function ChatPageContent() {
 
   // Group images by provider for each message
   const groupImagesByProvider = (message: Message) => {
-    if (!message.imageUrls || !message.metadata?.providers) return {};
-
-    const providers = message.metadata.providers as string[];
-    const imageProviderMap = message.metadata.imageProviderMap as Record<string, string>;
+    const providers = message.metadata?.providers as string[] || [];
+    const imageProviderMap = message.metadata?.imageProviderMap as Record<string, string>;
+    const providerErrors = message.metadata?.providerErrors as Record<string, string> || {};
     const imageGroups: Record<string, string[]> = {};
 
-    // Initialize empty arrays for all providers
+    // Initialize empty arrays for all providers (including those with errors)
     providers.forEach((provider) => {
       imageGroups[provider] = [];
     });
+    
+    // Also include any providers that have errors but might not be in the original providers list
+    Object.keys(providerErrors).forEach((provider) => {
+      if (!imageGroups[provider]) {
+        imageGroups[provider] = [];
+      }
+    });
 
-    // If we have a provider map, use it to group images correctly
-    if (imageProviderMap && typeof imageProviderMap === 'object') {
-      message.imageUrls.forEach((imageUrl) => {
-        const provider = imageProviderMap[imageUrl];
-        if (provider && imageGroups[provider]) {
-          imageGroups[provider].push(imageUrl);
-        }
-      });
-    } else {
-      // Fallback to old logic if imageProviderMap is not available
-      let imageIndex = 0;
-      providers.forEach((provider) => {
-        const imagesPerProvider = Math.floor(
-          message.imageUrls!.length / providers.length
-        );
-        const remainingImages = message.imageUrls!.length % providers.length;
-        const currentProviderImages =
-          imagesPerProvider + (imageIndex < remainingImages ? 1 : 0);
+    // If we have images, group them by provider
+    if (message.imageUrls && message.imageUrls.length > 0) {
+      // If we have a provider map, use it to group images correctly
+      if (imageProviderMap && typeof imageProviderMap === 'object') {
+        message.imageUrls.forEach((imageUrl) => {
+          const provider = imageProviderMap[imageUrl];
+          if (provider && imageGroups[provider] !== undefined) {
+            imageGroups[provider].push(imageUrl);
+          }
+        });
+      } else {
+        // Fallback to old logic if imageProviderMap is not available
+        let imageIndex = 0;
+        providers.forEach((provider) => {
+          const imagesPerProvider = Math.floor(
+            message.imageUrls!.length / providers.length
+          );
+          const remainingImages = message.imageUrls!.length % providers.length;
+          const currentProviderImages =
+            imagesPerProvider + (imageIndex < remainingImages ? 1 : 0);
 
-        const providerImages = message.imageUrls!.slice(
-          imageIndex,
-          imageIndex + currentProviderImages
-        );
+          const providerImages = message.imageUrls!.slice(
+            imageIndex,
+            imageIndex + currentProviderImages
+          );
 
-        if (providerImages.length > 0) {
-          imageGroups[provider] = providerImages;
-        }
+          if (providerImages.length > 0) {
+            imageGroups[provider] = providerImages;
+          }
 
-        imageIndex += currentProviderImages;
-      });
+          imageIndex += currentProviderImages;
+        });
+      }
     }
 
     return imageGroups;
@@ -532,16 +542,17 @@ function ChatPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 flex">
-      {/* Chat Sidebar */}
-      <div className="flex-shrink-0">
-        <ChatSidebar
-          currentSessionId={currentSessionId || undefined}
-          onNewChat={handleNewChat}
-          isCollapsed={sidebarCollapsed}
-          onToggle={handleSidebarToggle}
-        />
-      </div>
+    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 flex flex-col">
+      <div className="flex flex-1">
+        {/* Chat Sidebar */}
+        <div className="flex-shrink-0">
+          <ChatSidebar
+            currentSessionId={currentSessionId || undefined}
+            onNewChat={handleNewChat}
+            isCollapsed={sidebarCollapsed}
+            onToggle={handleSidebarToggle}
+          />
+        </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -564,12 +575,23 @@ function ChatPageContent() {
                   <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                     <X className="w-2 h-2 text-white" />
                   </div>
-                  <p className="text-sm text-red-700 dark:text-red-300">
+                  <p className="text-sm text-red-700 dark:text-red-300 flex-1">
                     {errorMessage}
                   </p>
+                  {errorMessage.includes('Insufficient credits') && (
+                    <button
+                      onClick={() => {
+                        window.location.href = '/billing';
+                      }}
+                      className="text-xs bg-blue-100 dark:bg-blue-900/20 hover:bg-blue-200 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                    >
+                      <CreditCard className="w-3 h-3" />
+                      Add Credits
+                    </button>
+                  )}
                   <button
                     onClick={() => setErrorMessage(null)}
-                    className="ml-auto text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -603,7 +625,10 @@ function ChatPageContent() {
                   .filter(
                     (msg) =>
                       msg.role === "assistant" &&
-                      (msg.imageUrls?.length || msg.status === "generating")
+                      (msg.imageUrls?.length || 
+                       msg.status === "generating" ||
+                       msg.status === "failed" ||
+                       msg.status === "partial")
                   )
                   .map((message) => {
                     const prompt = message.metadata?.prompt as string;
@@ -721,7 +746,7 @@ function ChatPageContent() {
                         {/* Images Grid */}
                         <div className="p-4">
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {Object.entries(groupImagesByProvider(message))
+                            {Object.entries(groupImagesByProvider(message) || {})
                               .map(([provider, images]) => {
                                 const expectedCount = messageImageCount?.[provider] || 1;
                                 const isGenerating = message.status === "generating";
@@ -810,20 +835,33 @@ function ChatPageContent() {
                                       {hasProviderError && !isGenerating && images.length === 0 && (
                                         <div className="col-span-2 flex flex-col items-center justify-center p-6 border-2 border-dashed border-red-200 dark:border-red-800 rounded-xl bg-red-50 dark:bg-red-900/10">
                                           <AlertCircle className="w-8 h-8 text-red-500 dark:text-red-400 mb-2" />
-                                          <p className="text-sm text-red-600 dark:text-red-400 text-center mb-2">
+                                          <p className="text-sm text-red-600 dark:text-red-400 text-center mb-3">
                                             {hasProviderError}
                                           </p>
-                                          <button
-                                            onClick={() => {
-                                              if (prompt) {
-                                                handleSendMessage(prompt, [provider as Provider]);
-                                              }
-                                            }}
-                                            className="text-xs bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
-                                          >
-                                            <RefreshCw className="w-3 h-3" />
-                                            Retry
-                                          </button>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              onClick={() => {
+                                                if (prompt) {
+                                                  handleSendMessage(prompt, [provider as Provider]);
+                                                }
+                                              }}
+                                              className="text-xs bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                                            >
+                                              <RefreshCw className="w-3 h-3" />
+                                              Retry
+                                            </button>
+                                            {hasProviderError.includes('Insufficient credits') && (
+                                              <button
+                                                onClick={() => {
+                                                  window.location.href = '/billing';
+                                                }}
+                                                className="text-xs bg-blue-100 dark:bg-blue-900/20 hover:bg-blue-200 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md transition-colors flex items-center gap-1"
+                                              >
+                                                <CreditCard className="w-3 h-3" />
+                                                Add Credits
+                                              </button>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
                                       
@@ -993,6 +1031,7 @@ function ChatPageContent() {
           onModelChange={handleModelChange}
           onImageCountChange={handleImageCountChange}
         />
+      </div>
       </div>
     </div>
   );

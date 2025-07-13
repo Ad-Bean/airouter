@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import AuthProvider from "@/components/AuthProvider";
-import { FreeUserNotification } from "@/components/FreeUserNotification";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,7 +28,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          <FreeUserNotification />
           {children}
         </AuthProvider>
       </body>

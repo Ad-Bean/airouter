@@ -3,11 +3,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { checkCredits, deductCredits } from "@/lib/credits";
 import { generateWithOpenAI } from "@/lib/providers/openai";
-import { generateWithStabilityAI } from "@/lib/providers/stability";
-import { generateWithReplicateSD } from "@/lib/providers/replicate";
 import { generateWithGoogle } from "@/lib/providers/google";
 
-export type Provider = "openai" | "stability" | "replicate" | "google";
+export type Provider = "openai" | "google";
 
 interface GenerateRequest {
   prompt: string;
@@ -98,25 +96,6 @@ export async function POST(request: NextRequest) {
             | "1536x1024",
           quality: quality as "standard" | "hd" | "low" | "medium" | "high",
           n: n || 1,
-        });
-        break;
-
-      case "stability":
-        result = await generateWithStabilityAI({
-          prompt,
-          model: model || "stable-diffusion-xl-1024-v1-0",
-          width,
-          height,
-          steps,
-        });
-        break;
-
-      case "replicate":
-        result = await generateWithReplicateSD({
-          prompt,
-          width,
-          height,
-          num_inference_steps: steps,
         });
         break;
 

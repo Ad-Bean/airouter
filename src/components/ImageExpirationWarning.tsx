@@ -74,13 +74,12 @@ export function ImageExpirationWarning({
     return null;
   }
 
-  // Don't show warning for paid users with more than 24 hours left
-  if (userType === "paid" && timeInfo.minutes > 24 * 60) {
-    return null;
-  }
-
-  // Don't show warning for free users with more than 5 minutes left initially
-  if (userType === "free" && timeInfo.minutes > 5) {
+  // Show warning immediately for free users, and for paid users when getting close to expiration
+  if (userType === "free") {
+    // Always show for free users since they have only 10 minutes
+    // No need to hide initially
+  } else if (userType === "paid" && timeInfo.minutes > 24 * 60) {
+    // Don't show warning for paid users with more than 24 hours left
     return null;
   }
 
@@ -91,11 +90,13 @@ export function ImageExpirationWarning({
     <div className={`rounded-lg border p-3 ${className} ${
       isUrgent 
         ? "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800" 
-        : "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800"
+        : userType === "free"
+          ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+          : "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800"
     }`}>
       <div className="flex items-start gap-2">
         <div className={`w-4 h-4 mt-0.5 ${
-          isUrgent ? "text-red-500" : "text-yellow-500"
+          isUrgent ? "text-red-500" : userType === "free" ? "text-amber-500" : "text-yellow-500"
         }`}>
           {isUrgent ? <AlertCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
         </div>
@@ -104,21 +105,25 @@ export function ImageExpirationWarning({
           <div className={`text-sm font-medium ${
             isUrgent 
               ? "text-red-800 dark:text-red-200" 
-              : "text-yellow-800 dark:text-yellow-200"
+              : userType === "free"
+                ? "text-amber-800 dark:text-amber-200"
+                : "text-yellow-800 dark:text-yellow-200"
           }`}>
-            {userType === "free" ? "Free Tier Image Expiration" : "Image Expiration"}
+            {userType === "free" ? "⏰ Free Tier - Limited Storage" : "Image Expiration"}
           </div>
           
           <div className={`text-xs mt-1 ${
             isUrgent 
               ? "text-red-600 dark:text-red-300" 
-              : "text-yellow-600 dark:text-yellow-300"
+              : userType === "free"
+                ? "text-amber-600 dark:text-amber-300"
+                : "text-yellow-600 dark:text-yellow-300"
           }`}>
             {userType === "free" ? (
               <>
-                This image will be deleted in <strong>{timeInfo.timeLeft}</strong>.
+                These images will be <strong>automatically deleted in {timeInfo.timeLeft}</strong>.
                 <br />
-                Free tier images are stored for 10 minutes only.
+                💡 Free tier images are stored for 10 minutes only.
               </>
             ) : (
               <>
@@ -133,7 +138,7 @@ export function ImageExpirationWarning({
             <div className="mt-2">
               <a
                 href="/billing"
-                className="inline-flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-md transition-colors"
+                className="inline-flex items-center gap-1 text-xs bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-2.5 py-1.5 rounded-md transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 <Crown className="w-3 h-3" />
                 Upgrade for 7-day storage

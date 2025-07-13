@@ -58,14 +58,6 @@ export const GENERATION_COSTS = {
       '1536x1024': 1.6, // $0.016 (low quality)
     },
   },
-  stability: {
-    'stable-diffusion-xl-1024-v1-0': 3,
-    'stable-diffusion-v1-6': 2,
-    default: 3,
-  },
-  replicate: {
-    default: 2,
-  },
   google: {
     'imagen-4-preview': 4.0, // $0.04
     'imagen-4-standard': 4.0, // $0.04
@@ -191,7 +183,7 @@ export const FREE_TIER_LIMITS = {
   dailyCredits: 5,
   monthlyCredits: 50,
   maxResolution: '1024x1024',
-  allowedProviders: ['openai', 'stability'],
+  allowedProviders: ['openai', 'google'],
 } as const;
 
 // Auto top-up options

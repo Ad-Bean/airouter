@@ -15,6 +15,9 @@ export interface DashboardStats {
     // Legacy storage fields
     imageUrl: string | null;
     imagePath: string | null;
+    // Expiration fields
+    autoDeleteAt: string | null;
+    userType: string | null;
   }>;
 }
 
@@ -40,4 +43,7 @@ export interface GeneratedImage {
   isFavorite: boolean;
   isPublic: boolean;
   createdAt: string;
+  // Expiration fields
+  autoDeleteAt: string | null;
+  userType: string | null;
 }

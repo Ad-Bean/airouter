@@ -119,7 +119,7 @@ model GeneratedImage {
   mimeType        String?  // MIME type (image/png, image/jpeg, image/svg+xml, etc.)
   filename        String?  // Original filename or generated name
   
-  provider        String   // "openai", "stability", "replicate", "google"
+  provider        String   // "openai", "google"
   model           String?  // Model used
   width           Int      @default(1024)
   height          Int      @default(1024)

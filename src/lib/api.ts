@@ -1,6 +1,6 @@
 import { AVAILABLE_PROVIDERS, getProviderModels } from "@/config/providers";
 
-export type Provider = "openai" | "stability" | "replicate" | "google";
+export type Provider = "openai" | "google";
 
 export interface GenerateImageParams {
   prompt: string;
@@ -71,7 +71,5 @@ export async function generateImageSmart(
 // Utility to get available models for each provider
 export const providerModels = {
   openai: getProviderModels("openai"),
-  stability: getProviderModels("stability"),
-  replicate: getProviderModels("replicate"),
   google: getProviderModels("google"),
 } as const;

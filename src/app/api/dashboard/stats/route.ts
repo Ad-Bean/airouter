@@ -77,6 +77,13 @@ export async function GET() {
         // Legacy storage fields
         imageUrl: true,
         imagePath: true,
+        // Expiration fields
+        autoDeleteAt: true,
+        user: {
+          select: {
+            userType: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 6,
@@ -96,7 +103,11 @@ export async function GET() {
         },
         {} as Record<string, number>
       ),
-      recentImagesList,
+      recentImagesList: recentImagesList.map(image => ({
+        ...image,
+        userType: image.user.userType,
+        user: undefined, // Remove user object from response
+      })),
     };
 
     return NextResponse.json(response);

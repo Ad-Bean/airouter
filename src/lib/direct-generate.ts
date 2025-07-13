@@ -1,10 +1,8 @@
 import { checkCredits, deductCredits } from "@/lib/credits";
 import { generateWithOpenAI } from "@/lib/providers/openai";
-import { generateWithStabilityAI } from "@/lib/providers/stability";
-import { generateWithReplicateSD } from "@/lib/providers/replicate";
 import { generateWithGoogle } from "@/lib/providers/google";
 
-export type Provider = "openai" | "stability" | "replicate" | "google";
+export type Provider = "openai" | "google";
 
 export interface GenerateImageParams {
   prompt: string;
@@ -54,7 +52,6 @@ export async function generateImageDirect(
     model,
     width = 1024,
     height = 1024,
-    steps = 20,
     n,
     sampleCount,
     quality = "standard",
@@ -104,25 +101,6 @@ export async function generateImageDirect(
           | "1536x1024",
         quality: quality as "standard" | "hd" | "low" | "medium" | "high",
         n: n || 1,
-      });
-      break;
-
-    case "stability":
-      result = await generateWithStabilityAI({
-        prompt,
-        model: model || "stable-diffusion-xl-1024-v1-0",
-        width,
-        height,
-        steps,
-      });
-      break;
-
-    case "replicate":
-      result = await generateWithReplicateSD({
-        prompt,
-        width,
-        height,
-        num_inference_steps: steps,
       });
       break;
 

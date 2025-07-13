@@ -21,9 +21,9 @@ export function GeneratedImagesDisplay({
             .map((p) =>
               p === "openai"
                 ? "OpenAI DALL-E"
-                : p === "stability"
-                ? "Stability AI"
-                : "Replicate"
+                : p === "google"
+                ? "Google Imagen"
+                : p
             )
             .join(", ")}
           ...

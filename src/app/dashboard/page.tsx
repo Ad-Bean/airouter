@@ -4,6 +4,8 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navigation } from "@/components/Navigation";
+import { FreeUserNotification } from "@/components/FreeUserNotification";
+import { getImageStatus } from "@/lib/image-utils";
 import Image from "next/image";
 import {
   ImageIcon,
@@ -12,6 +14,7 @@ import {
   BarChart3,
   Eye,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { DashboardStats } from "@/types/dashboard";
 import { PROVIDER_CONFIGS } from "@/config/providers";
@@ -108,6 +111,9 @@ export default function DashboardPage() {
           onShowLogin={handleShowLogin}
           onShowRegister={handleShowRegister}
         />
+
+        {/* Free User Notification */}
+        <FreeUserNotification />
 
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -258,26 +264,69 @@ export default function DashboardPage() {
 
               {stats?.recentImagesList && stats.recentImagesList.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {stats.recentImagesList.map((image) => (
-                    <div
-                      key={image.id}
-                      className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                      onClick={() => router.push("/gallery")}
-                    >
-                      <Image
-                        src={getImageDisplayUrl(image)}
-                        alt={image.prompt}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-200"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
-                        <p className="text-xs text-white truncate">
-                          {image.prompt}
-                        </p>
+                  {stats.recentImagesList.map((image) => {
+                    const imageStatus = getImageStatus(image.autoDeleteAt, image.userType);
+                    
+                    return (
+                      <div
+                        key={image.id}
+                        className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                        onClick={() => {
+                          if (!imageStatus.isExpired) {
+                            router.push("/gallery");
+                          }
+                        }}
+                      >
+                        {!imageStatus.isExpired ? (
+                          <Image
+                            src={getImageDisplayUrl(image)}
+                            alt={image.prompt}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-600">
+                            <div className="text-center">
+                              <div className="w-8 h-8 mx-auto mb-2 bg-red-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">!</span>
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Expired
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Expiration Status Overlay */}
+                        {imageStatus.isExpired && (
+                          <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center">
+                            <div className="text-center text-white">
+                              <AlertCircle className="w-6 h-6 mx-auto mb-1" />
+                              <p className="text-xs font-semibold">Image Expired</p>
+                              <p className="text-xs opacity-90">URL no longer valid</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Expiration Warning for Free Users */}
+                        {!imageStatus.isExpired && imageStatus.shouldShowWarning && image.userType === "free" && (
+                          <div className="absolute top-1 right-1 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-md font-medium">
+                            {imageStatus.timeLeft}
+                          </div>
+                        )}
+                        
+                        {!imageStatus.isExpired && (
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                        )}
+                        
+                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                          <p className="text-xs text-white truncate">
+                            {image.prompt}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
