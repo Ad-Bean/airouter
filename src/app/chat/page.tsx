@@ -559,8 +559,8 @@ function ChatPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300 flex flex-col">
-      <div className="flex flex-1">
+    <div className="h-screen bg-white dark:bg-gray-900 transition-colors duration-300 flex flex-col overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         {/* Chat Sidebar */}
         <div className="flex-shrink-0">
           <ChatSidebar
@@ -573,18 +573,17 @@ function ChatPageContent() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="relative z-10 flex flex-col h-screen">
-          {/* Navigation */}
-          <div className="flex-shrink-0">
-            <ChatNavigation
-              isDark={isDark}
-              onToggleTheme={toggleTheme}
-              onShowLogin={handleShowLogin}
-              onShowRegister={handleShowRegister}
-            />
-          </div>
+        {/* Navigation */}
+        <div className="flex-shrink-0">
+          <ChatNavigation
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            onShowLogin={handleShowLogin}
+            onShowRegister={handleShowRegister}
+          />
+        </div>
 
-          <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0">
             {/* Error Message */}
             {errorMessage && (
               <div className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -617,7 +616,7 @@ function ChatPageContent() {
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 pb-6">
               {messages.length === 0 && (
                 <div className="text-center py-20">
                   <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
@@ -1051,7 +1050,6 @@ function ChatPageContent() {
           onModelChange={handleModelChange}
           onImageCountChange={handleImageCountChange}
         />
-      </div>
       </div>
     </div>
   );

@@ -24,33 +24,61 @@ export function GeneratedImage({
 }: GeneratedImageProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
-  // Determine the actual image URL
-  const imageUrl = src.startsWith("http") || src.startsWith("/api/") ? src : `/api/images/${src}`;
+  // Determine the actual image URL with better validation
+  const imageUrl = (() => {
+    if (!src) return '';
+    if (src.startsWith("http://") || src.startsWith("https://")) return src;
+    if (src.startsWith("/api/")) return src;
+    if (src.startsWith("/")) return src;
+    return `/api/images/${src}`;
+  })();
   
   // Check if this is an API route that should be unoptimized
   const isApiRoute = imageUrl.startsWith("/api/");
   
   const handleError = () => {
+    console.error('Image load error for URL:', imageUrl);
     setImageError(true);
     setIsLoading(false);
     onError?.();
   };
 
   const handleLoad = () => {
+    setImageError(false);
     setIsLoading(false);
+  };
+
+  const handleRetry = () => {
+    if (retryCount < 2) {
+      setImageError(false);
+      setIsLoading(true);
+      setRetryCount(prev => prev + 1);
+    }
   };
 
   if (imageError) {
     return (
       <div 
-        className={`flex items-center justify-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl ${className}`}
+        className={`flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl ${className}`}
         style={{ width, height }}
         onClick={onClick}
       >
         <div className="text-center text-xs text-gray-500 dark:text-gray-400 p-2">
           <div className="mb-1">⚠️</div>
           <div>Image Error</div>
+          {retryCount < 2 && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRetry();
+              }}
+              className="mt-2 px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </div>
     );
@@ -67,6 +95,7 @@ export function GeneratedImage({
         </div>
       )}
       <Image
+        key={`${imageUrl}-${retryCount}`}
         src={imageUrl}
         alt={alt}
         width={width}
