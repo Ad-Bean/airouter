@@ -681,14 +681,27 @@ function ChatPageContent() {
                         )}
 
                         {/* Failed Status */}
-                        {message.status === "failed" && (
+                        {(message.status === "failed" || message.status === "partial") && (
                           <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 mb-2">
                               <X className="w-4 h-4 text-red-600" />
                               <span className="text-xs font-medium text-red-700 dark:text-red-300">
-                                Failed to generate images. Please try again.
+                                {message.status === "partial" 
+                                  ? "Some images failed to generate" 
+                                  : message.imageUrls && message.imageUrls.length > 0 
+                                    ? "Some images failed to generate"
+                                    : "Failed to generate images"}
                               </span>
                             </div>
+                            {message.metadata?.providerErrors && (
+                              <div className="ml-7 space-y-1">
+                                {Object.entries(message.metadata.providerErrors as Record<string, string>).map(([provider, error]) => (
+                                  <div key={provider} className="text-xs text-red-600 dark:text-red-400">
+                                    <span className="font-medium capitalize">{provider}:</span> {error}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 

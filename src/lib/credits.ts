@@ -1,11 +1,21 @@
 import { prisma } from '@/lib/prisma';
-import { calculateGenerationCost } from '@/config/credits';
+import { calculateGenerationCost, calculateGPTImageTotalCost } from '@/config/credits';
 
 export interface DeductCreditsParams {
   userId: string;
   provider: string;
   model?: string;
   size?: string;
+  quality?: string;
+  usage?: {
+    total_tokens?: number;
+    input_tokens?: number;
+    output_tokens?: number;
+    input_tokens_details?: {
+      text_tokens?: number;
+      image_tokens?: number;
+    };
+  };
   description?: string;
 }
 
@@ -37,15 +47,37 @@ export async function deductCredits({
   provider,
   model,
   size,
+  quality,
+  usage,
   description,
 }: DeductCreditsParams): Promise<DeductCreditsResult> {
   try {
     // Calculate cost based on provider and settings
-    const cost = calculateGenerationCost(
-      provider as keyof typeof import('@/config/credits').GENERATION_COSTS,
-      model,
-      size
-    );
+    let cost: number;
+    
+    if (provider === 'openai' && model === 'gpt-image-1' && usage?.total_tokens) {
+      // Use special calculation for GPT-Image-1 with token costs
+      const validUsage = {
+        total_tokens: usage.total_tokens,
+        input_tokens: usage.input_tokens || 0,
+        output_tokens: usage.output_tokens || 0,
+        input_tokens_details: usage.input_tokens_details && usage.input_tokens_details.text_tokens !== undefined && usage.input_tokens_details.image_tokens !== undefined
+          ? {
+              text_tokens: usage.input_tokens_details.text_tokens,
+              image_tokens: usage.input_tokens_details.image_tokens,
+            }
+          : undefined,
+      };
+      cost = calculateGPTImageTotalCost(size || '1024x1024', quality || 'low', validUsage);
+    } else {
+      // Use regular calculation
+      cost = calculateGenerationCost(
+        provider as keyof typeof import('@/config/credits').GENERATION_COSTS,
+        model,
+        size,
+        quality
+      );
+    }
 
     // Get user's current credits
     const user = await prisma.user.findUnique({
@@ -94,6 +126,8 @@ export async function deductCredits({
           provider,
           model,
           size,
+          quality,
+          ...(usage && { usage }),
         },
       },
     });
@@ -184,12 +218,14 @@ export async function checkCredits(
   userId: string,
   provider: string,
   model?: string,
-  size?: string
+  size?: string,
+  quality?: string
 ): Promise<{ hasEnough: boolean; required: number; available: number }> {
   const required = calculateGenerationCost(
     provider as keyof typeof import('@/config/credits').GENERATION_COSTS,
     model,
-    size
+    size,
+    quality
   );
   const available = await getUserCredits(userId);
 

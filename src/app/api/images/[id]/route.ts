@@ -94,7 +94,20 @@ export async function GET(
         }
 
         // Redirect to signed URL for direct access
-        return NextResponse.redirect(signedUrl);
+        const response = await fetch(signedUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        
+        const imageBuffer = await response.arrayBuffer();
+        const headers = new Headers();
+        headers.set("Content-Type", image.mimeType || "image/png");
+        headers.set("Cache-Control", "public, max-age=3600");
+        
+        return new NextResponse(imageBuffer, {
+          status: 200,
+          headers,
+        });
       } catch (s3Error) {
         console.error("Error with S3 signed URL:", s3Error);
         // Continue to fallback methods
@@ -133,7 +146,25 @@ export async function GET(
 
     // Priority 3: Legacy imageUrl
     if (image.imageUrl) {
-      return NextResponse.redirect(image.imageUrl);
+      try {
+        const response = await fetch(image.imageUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        
+        const imageBuffer = await response.arrayBuffer();
+        const headers = new Headers();
+        headers.set("Content-Type", image.mimeType || "image/png");
+        headers.set("Cache-Control", "public, max-age=3600");
+        
+        return new NextResponse(imageBuffer, {
+          status: 200,
+          headers,
+        });
+      } catch (error) {
+        console.error("Error fetching legacy image URL:", error);
+        // Continue to 404
+      }
     }
 
     return NextResponse.json(

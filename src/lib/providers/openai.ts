@@ -17,8 +17,8 @@ function getOpenAIClient(): OpenAI {
 export interface OpenAIGenerateParams {
   prompt: string;
   model?: "gpt-image-1" | "dall-e-2" | "dall-e-3";
-  size?: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
-  quality?: "standard" | "hd";
+  size?: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792" | "1024x1536" | "1536x1024";
+  quality?: "standard" | "hd" | "low" | "medium" | "high";
   n?: number;
 }
 
@@ -26,7 +26,16 @@ export interface OpenAIGenerateResponse {
   images: string[];
   usage?: {
     total_tokens?: number;
+    input_tokens?: number;
+    output_tokens?: number;
+    input_tokens_details?: {
+      text_tokens?: number;
+      image_tokens?: number;
+    };
   };
+  model?: string;
+  size?: string;
+  quality?: string;
 }
 
 export async function generateWithOpenAI(
@@ -58,8 +67,19 @@ export async function generateWithOpenAI(
       compatibleSize = "1024x1024"; // DALL-E 2 fallback
     }
 
+    // Map quality for GPT-Image-1
+    let gptImageQuality = quality;
+    if (model === "gpt-image-1") {
+      // GPT-Image-1 uses low/medium/high instead of standard/hd
+      if (quality === "standard") {
+        gptImageQuality = "low";
+      } else if (quality === "hd") {
+        gptImageQuality = "high";
+      }
+    }
+
     console.log(
-      `Attempting OpenAI generation with model: ${model}, size: ${compatibleSize}`
+      `Attempting OpenAI generation with model: ${model}, size: ${compatibleSize}, quality: ${gptImageQuality}`
     );
 
     // Build request parameters based on model
@@ -71,20 +91,23 @@ export async function generateWithOpenAI(
         | "512x512"
         | "1024x1024"
         | "1792x1024"
-        | "1024x1792",
+        | "1024x1792"
+        | "1024x1536"
+        | "1536x1024",
     };
 
     type RequestParams =
       | {
           model: "gpt-image-1";
           prompt: string;
-          size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
+          size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792" | "1024x1536" | "1536x1024";
+          quality?: "low" | "medium" | "high";
           n?: number;
         }
       | {
           model: "dall-e-2" | "dall-e-3";
           prompt: string;
-          size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792";
+          size: "256x256" | "512x512" | "1024x1024" | "1792x1024" | "1024x1792" | "1024x1536" | "1536x1024";
           response_format: "b64_json";
           quality?: "standard" | "hd";
           n?: number;
@@ -98,6 +121,7 @@ export async function generateWithOpenAI(
       requestParams = {
         ...baseParams,
         model: "gpt-image-1",
+        quality: gptImageQuality as "low" | "medium" | "high",
         n: Math.min(n, 10), // GPT Image 1 supports up to 10 images
       };
     } else if (model === "dall-e-3") {
@@ -152,11 +176,30 @@ export async function generateWithOpenAI(
       throw new Error("No images returned from OpenAI");
     }
 
+    // Extract usage information if available (GPT-Image-1 may include usage)
+    const responseWithUsage = response as typeof response & {
+      usage?: {
+        total_tokens?: number;
+        input_tokens?: number;
+        output_tokens?: number;
+        input_tokens_details?: {
+          text_tokens?: number;
+          image_tokens?: number;
+        };
+      };
+    };
+    
     return {
       images,
       usage: {
-        total_tokens: sanitizedPrompt.length, // Rough estimate
+        total_tokens: responseWithUsage.usage?.total_tokens || sanitizedPrompt.length, // Use actual or rough estimate
+        input_tokens: responseWithUsage.usage?.input_tokens,
+        output_tokens: responseWithUsage.usage?.output_tokens,
+        input_tokens_details: responseWithUsage.usage?.input_tokens_details,
       },
+      model,
+      size: compatibleSize,
+      quality: gptImageQuality,
     };
   } catch (error: unknown) {
     console.error("OpenAI generation error:", error);

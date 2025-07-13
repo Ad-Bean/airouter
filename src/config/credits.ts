@@ -39,23 +39,23 @@ export const CREDIT_PACKAGES = [
   },
 ] as const;
 
-// Cost per image generation by provider and settings
+// Cost per image generation by provider and settings (in cents)
 export const GENERATION_COSTS = {
   openai: {
     'dall-e-2': {
-      '256x256': 1,
-      '512x512': 2,
-      '1024x1024': 3,
+      '256x256': 1.6, // $0.016
+      '512x512': 1.8, // $0.018
+      '1024x1024': 2.0, // $0.02
     },
     'dall-e-3': {
-      '1024x1024': 5,
-      '1792x1024': 8,
-      '1024x1792': 8,
+      '1024x1024': 4.0, // $0.04
+      '1792x1024': 8.0, // $0.08
+      '1024x1792': 8.0, // $0.08
     },
     'gpt-image-1': {
-      '1024x1024': 4,
-      '1792x1024': 6,
-      '1024x1792': 6,
+      '1024x1024': 1.1, // $0.011 (low quality)
+      '1024x1536': 1.6, // $0.016 (low quality)
+      '1536x1024': 1.6, // $0.016 (low quality)
     },
   },
   stability: {
@@ -67,42 +67,123 @@ export const GENERATION_COSTS = {
     default: 2,
   },
   google: {
-    'imagen-4.0-generate-preview-06-06': 4,
-    default: 4,
+    'imagen-4-preview': 4.0, // $0.04
+    'imagen-4-standard': 4.0, // $0.04
+    'imagen-4-ultra': 6.0, // $0.06
+    'imagen-3': 3.0, // $0.03
+    default: 4.0,
   },
+} as const;
+
+// GPT-Image-1 token costs (per 1M tokens in USD)
+export const GPT_IMAGE_TOKEN_COSTS = {
+  input: 10.0, // $10.00 per 1M tokens
+  cached_input: 2.5, // $2.50 per 1M tokens
+  output: 40.0, // $40.00 per 1M tokens
 } as const;
 
 // Calculate cost for image generation
 export function calculateGenerationCost(
   provider: keyof typeof GENERATION_COSTS,
   model?: string,
-  size?: string
+  size?: string,
+  quality?: string
 ): number {
   const providerCosts = GENERATION_COSTS[provider];
-  
+
   if (!providerCosts) {
     return 1; // Default cost
   }
-  
+
   if (provider === 'openai' && model && size) {
     const openaiCosts = providerCosts as typeof GENERATION_COSTS.openai;
     if (model in openaiCosts) {
       const modelCosts = openaiCosts[model as keyof typeof openaiCosts];
       if (typeof modelCosts === 'object' && size in modelCosts) {
-        return modelCosts[size as keyof typeof modelCosts] || 3;
+        let baseCost = modelCosts[size as keyof typeof modelCosts] || 3;
+
+        // Apply quality multipliers for specific models
+        if (model === 'gpt-image-1' && quality) {
+          switch (quality) {
+            case 'medium':
+              baseCost *= 3.8; // $0.042 / $0.011
+              break;
+            case 'high':
+              baseCost *= 15.2; // $0.167 / $0.011
+              break;
+            // low quality uses base cost
+          }
+        }
+
+        if (model === 'dall-e-3' && quality === 'hd') {
+          baseCost *= 2; // HD costs double
+        }
+
+        return baseCost;
       }
     }
   }
-  
+
+  if (provider === 'google' && model) {
+    const googleCosts = providerCosts as typeof GENERATION_COSTS.google;
+    if (model in googleCosts) {
+      return googleCosts[model as keyof typeof googleCosts];
+    }
+  }
+
   if (typeof providerCosts === 'object' && 'default' in providerCosts) {
     return providerCosts.default;
   }
-  
+
   if (typeof providerCosts === 'number') {
     return providerCosts;
   }
-  
+
   return 1; // Fallback
+}
+
+// Calculate token cost for GPT-Image-1
+export function calculateGPTImageTokenCost(
+  inputTokens: number,
+  outputTokens: number,
+  cachedInputTokens: number = 0
+): number {
+  const inputCost =
+    ((inputTokens - cachedInputTokens) * GPT_IMAGE_TOKEN_COSTS.input) / 1000000;
+  const cachedCost =
+    (cachedInputTokens * GPT_IMAGE_TOKEN_COSTS.cached_input) / 1000000;
+  const outputCost = (outputTokens * GPT_IMAGE_TOKEN_COSTS.output) / 1000000;
+
+  return inputCost + cachedCost + outputCost;
+}
+
+// Calculate total cost for GPT-Image-1 generation (image + tokens)
+export function calculateGPTImageTotalCost(
+  size: string,
+  quality: string,
+  usage?: {
+    total_tokens: number;
+    input_tokens: number;
+    output_tokens: number;
+    input_tokens_details?: {
+      text_tokens: number;
+      image_tokens: number;
+    };
+  }
+): number {
+  // Image generation cost
+  const imageCost = calculateGenerationCost('openai', 'gpt-image-1', size, quality);
+
+  // Token cost (if usage data is provided)
+  let tokenCost = 0;
+  if (usage) {
+    tokenCost = calculateGPTImageTokenCost(
+      usage.input_tokens,
+      usage.output_tokens
+    );
+  }
+
+  return imageCost + tokenCost;
 }
 
 // Free tier limits

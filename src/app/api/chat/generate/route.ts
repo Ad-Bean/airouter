@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
-import { generateImage, type Provider } from "@/lib/api";
+import { generateImageDirect, type Provider } from "@/lib/direct-generate";
 import { uploadImageToS3 } from "@/lib/s3";
 
 // Direct image saving function for internal use
@@ -217,7 +217,7 @@ async function generateImagesBackground(
           generateParams.n = count;
         }
 
-        const result = await generateImage(generateParams);
+        const result = await generateImageDirect(generateParams, userId);
         console.log(`Generated from ${provider}:`, result);
 
         if (result.success && result.images && result.images.length > 0) {
@@ -246,13 +246,14 @@ async function generateImagesBackground(
             }
           }
 
-          return imageUrls;
+          return { success: true, provider, imageUrls, error: null };
         }
 
-        return [];
+        return { success: false, provider, imageUrls: [], error: result.error || "No images generated" };
       } catch (error) {
         console.error(`Error generating from ${provider}:`, error);
-        return [];
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return { success: false, provider, imageUrls: [], error: errorMessage };
       }
     });
 
@@ -260,23 +261,46 @@ async function generateImagesBackground(
     const results = await Promise.allSettled(generationPromises);
     const allImageUrls: string[] = [];
     const imageProviderMap: Record<string, string> = {};
+    const providerErrors: Record<string, string> = {};
 
     results.forEach((result, index) => {
       if (result.status === "fulfilled") {
+        const providerResult = result.value;
         const provider = providers[index];
-        result.value.forEach((imageUrl) => {
-          allImageUrls.push(imageUrl);
-          imageProviderMap[imageUrl] = provider;
-        });
+        
+        if (providerResult.success) {
+          providerResult.imageUrls.forEach((imageUrl) => {
+            allImageUrls.push(imageUrl);
+            imageProviderMap[imageUrl] = provider;
+          });
+        } else if (providerResult.error) {
+          providerErrors[provider] = providerResult.error;
+        }
+      } else {
+        const provider = providers[index];
+        providerErrors[provider] = result.reason?.message || "Generation failed";
       }
     });
 
     // Update message with final results
     await withDatabaseRetry(async () => {
+      const hasImages = allImageUrls.length > 0;
+      const hasErrors = Object.keys(providerErrors).length > 0;
+      
+      // Determine status based on results
+      let status: "completed" | "failed" | "partial";
+      if (hasImages && !hasErrors) {
+        status = "completed";
+      } else if (hasImages && hasErrors) {
+        status = "partial";
+      } else {
+        status = "failed";
+      }
+
       await prisma.chatMessage.update({
         where: { id: messageId },
         data: {
-          status: allImageUrls.length > 0 ? "completed" : "failed",
+          status,
           imageUrls: allImageUrls,
           metadata: {
             providers,
@@ -284,6 +308,7 @@ async function generateImagesBackground(
             imageCount,
             prompt,
             imageProviderMap,
+            providerErrors: Object.keys(providerErrors).length > 0 ? providerErrors : undefined,
           },
           updatedAt: new Date(),
         },
@@ -302,6 +327,13 @@ async function generateImagesBackground(
           where: { id: messageId },
           data: {
             status: "failed",
+            metadata: {
+              providers,
+              models,
+              imageCount,
+              prompt,
+              error: error instanceof Error ? error.message : "Unknown error",
+            },
             updatedAt: new Date(),
           },
         });

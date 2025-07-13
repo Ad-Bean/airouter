@@ -51,23 +51,17 @@ export const authOptions = {
     }),
   ],
   session: {
-    strategy: "jwt" as const,
+    strategy: "database" as const,
   },
   pages: {
     signIn: "/login",
   },
   callbacks: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async jwt({ token, user }: any) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async session({ session, token }: any) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
+    async session({ session, user }: any) {
+      // With database strategy, user object is available directly
+      if (user && session?.user) {
+        session.user.id = user.id;
       }
       return session;
     },

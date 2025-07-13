@@ -3,11 +3,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { checkCredits, deductCredits } from "@/lib/credits";
 import { generateWithOpenAI } from "@/lib/providers/openai";
-import { generateWithOpenAIMock } from "@/lib/providers/openai-mock";
 import { generateWithStabilityAI } from "@/lib/providers/stability";
 import { generateWithReplicateSD } from "@/lib/providers/replicate";
 import { generateWithGoogle } from "@/lib/providers/google";
-import { isProviderEnabled } from "@/lib/config";
 
 export type Provider = "openai" | "stability" | "replicate" | "google";
 
@@ -20,13 +18,22 @@ interface GenerateRequest {
   steps?: number;
   n?: number; // For OpenAI models
   sampleCount?: number; // For Google Vertex AI models
+  quality?: "standard" | "hd" | "low" | "medium" | "high";
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    
+    console.log("=== DEBUG SESSION ===");
+    console.log("Full session:", JSON.stringify(session, null, 2));
+    console.log("Session user:", session?.user);
+    console.log("User ID:", session?.user?.id);
+    console.log("User email:", session?.user?.email);
+    console.log("=== END DEBUG ===");
+    
+    if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -43,9 +50,10 @@ export async function POST(request: NextRequest) {
       steps = 20,
       n,
       sampleCount,
+      quality = "standard",
     } = body;
     console.log(
-      `Generating image with provider: ${provider}, model: ${model}, size: ${width}x${height}, steps: ${steps}`
+      `Generating image with provider: ${provider}, model: ${model}, size: ${width}x${height}, steps: ${steps}, quality: ${quality}`
     );
 
     if (!prompt) {
@@ -55,19 +63,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if the provider is enabled
-    if (!isProviderEnabled(provider)) {
-      return NextResponse.json(
-        {
-          error: `Provider ${provider} is not available. Please check your API configuration.`,
-        },
-        { status: 400 }
-      );
-    }
-
     // Calculate generation cost and check credits
     const size = `${width}x${height}`;
-    const creditCheck = await checkCredits(session.user.email, provider, model, size);
+    const creditCheck = await checkCredits(session.user.id, provider, model, size, quality);
     
     if (!creditCheck.hasEnough) {
       return NextResponse.json(
@@ -85,36 +83,22 @@ export async function POST(request: NextRequest) {
 
     switch (provider) {
       case "openai":
-        // Use mock for testing if enabled
-        if (process.env.USE_OPENAI_MOCK === "true") {
-          result = await generateWithOpenAIMock({
-            prompt,
-            model:
-              (model as "gpt-image-1" | "dall-e-2" | "dall-e-3" | undefined) ||
-              "dall-e-2",
-            size: `${width}x${height}` as
-              | "256x256"
-              | "512x512"
-              | "1024x1024"
-              | "1792x1024"
-              | "1024x1792",
-            n: n || 1,
-          });
-        } else {
-          result = await generateWithOpenAI({
-            prompt,
-            model:
-              (model as "gpt-image-1" | "dall-e-2" | "dall-e-3" | undefined) ||
-              "dall-e-2",
-            size: `${width}x${height}` as
-              | "256x256"
-              | "512x512"
-              | "1024x1024"
-              | "1792x1024"
-              | "1024x1792",
-            n: n || 1,
-          });
-        }
+        result = await generateWithOpenAI({
+          prompt,
+          model:
+            (model as "gpt-image-1" | "dall-e-2" | "dall-e-3" | undefined) ||
+            "dall-e-2",
+          size: `${width}x${height}` as
+            | "256x256"
+            | "512x512"
+            | "1024x1024"
+            | "1792x1024"
+            | "1024x1792"
+            | "1024x1536"
+            | "1536x1024",
+          quality: quality as "standard" | "hd" | "low" | "medium" | "high",
+          n: n || 1,
+        });
         break;
 
       case "stability":
@@ -139,7 +123,7 @@ export async function POST(request: NextRequest) {
       case "google":
         result = await generateWithGoogle({
           prompt,
-          model: model || "imagen-4.0-generate-preview-06-06", // Updated to latest model
+          model: (model as "imagen-4-preview" | "imagen-4-standard" | "imagen-4-ultra" | "imagen-3" | "imagen-4.0-generate-preview-06-06" | undefined) || "imagen-4-preview",
           sampleCount: sampleCount || 1,
         });
         break;
@@ -152,11 +136,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Deduct credits after successful generation
+    const usageData = result.usage && 'total_tokens' in result.usage ? result.usage : undefined;
     const deductResult = await deductCredits({
-      userId: session.user.email,
+      userId: session.user.id,
       provider,
       model,
       size,
+      quality,
+      usage: usageData,
       description: `Generated image: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}`,
     });
 

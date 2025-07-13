@@ -36,7 +36,7 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
       {
         id: "dall-e-3",
         name: "DALL-E 3",
-        description: "Latest and most capable model",
+        description: "Latest and most capable model ($0.04-$0.12/image)",
         supportsImageCount: true,
         maxImages: 1,
         defaultImages: 1,
@@ -44,7 +44,7 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
       {
         id: "dall-e-2",
         name: "DALL-E 2",
-        description: "Faster and more reliable",
+        description: "Faster and more reliable ($0.016-$0.02/image)",
         supportsImageCount: true,
         maxImages: 10,
         defaultImages: 1,
@@ -52,7 +52,7 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
       {
         id: "gpt-image-1",
         name: "GPT Image 1",
-        description: "OpenAI's latest image generation model",
+        description: "OpenAI's latest with token-based pricing ($0.011-$0.25/image + tokens)",
         supportsImageCount: true,
         maxImages: 10,
         defaultImages: 1,
@@ -108,81 +108,41 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
     ),
     models: [
       {
+        id: "imagen-4-preview",
+        name: "Imagen 4 Preview",
+        description: "Latest preview version with improved quality ($0.04/image)",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
+      },
+      {
+        id: "imagen-4-standard",
+        name: "Imagen 4 Standard",
+        description: "Standard quality generation ($0.04/image)",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
+      },
+      {
+        id: "imagen-4-ultra",
+        name: "Imagen 4 Ultra",
+        description: "Highest quality, premium tier ($0.06/image)",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
+      },
+      {
+        id: "imagen-3",
+        name: "Imagen 3",
+        description: "Stable version with reliable performance ($0.03/image)",
+        supportsImageCount: true,
+        maxImages: 8,
+        defaultImages: 1,
+      },
+      {
         id: "imagen-4.0-generate-preview-06-06",
-        name: "Imagen 4.0 (Latest Preview)",
-        description: "Latest preview version with improved quality",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagen-4.0-fast-generate-preview-06-06",
-        name: "Imagen 4.0 Fast (Preview)",
-        description: "Faster generation with good quality",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagen-4.0-ultra-generate-preview-06-06",
-        name: "Imagen 4.0 Ultra (Preview)",
-        description: "Highest quality, slower generation",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagen-3.0-generate-002",
-        name: "Imagen 3.0",
-        description: "Stable version with reliable performance",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagen-3.0-generate-001",
-        name: "Imagen 3.0 (v001)",
-        description: "Previous stable version",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagen-3.0-fast-generate-001",
-        name: "Imagen 3.0 Fast",
-        description: "Faster generation with good quality",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagen-3.0-capability-001",
-        name: "Imagen 3.0 Capability",
-        description: "Enhanced capabilities model",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagegeneration@006",
-        name: "Image Generation v006",
-        description: "Legacy model v006",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagegeneration@005",
-        name: "Image Generation v005",
-        description: "Legacy model v005",
-        supportsImageCount: true,
-        maxImages: 8,
-        defaultImages: 1,
-      },
-      {
-        id: "imagegeneration@002",
-        name: "Image Generation v002",
-        description: "Legacy model v002",
+        name: "Imagen 4.0 (Legacy)",
+        description: "Legacy model name (maps to Preview)",
         supportsImageCount: true,
         maxImages: 8,
         defaultImages: 1,
@@ -216,7 +176,7 @@ export const DEFAULT_PROVIDERS: Provider[] = ["openai"];
 // Default model configurations
 export const DEFAULT_MODELS: Record<string, string> = {
   openai: "dall-e-2", // Default to DALL-E 2 for OpenAI
-  google: "imagen-4.0-generate-preview-06-06",
+  google: "imagen-4-preview", // Default to Imagen 4 Preview
 };
 
 // Helper functions
