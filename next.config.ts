@@ -90,7 +90,25 @@ const nextConfig: NextConfig = {
         port: "3000",
         pathname: "/**",
       },
+      // Allow your own domain for API images
+      {
+        protocol: "https",
+        hostname: "airouter-tau.vercel.app",
+        port: "",
+        pathname: "/api/images/**",
+      },
+      // Allow any Vercel app deployment for API images
+      {
+        protocol: "https",
+        hostname: "**.vercel.app",
+        port: "",
+        pathname: "/api/images/**",
+      },
     ],
+    // Disable image optimization for API routes to prevent conflicts
+    unoptimized: false,
+    // Add custom loader configuration
+    loader: 'default',
   },
 };
 

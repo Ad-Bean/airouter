@@ -4,6 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { refreshSignedUrl } from "@/lib/s3";
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -204,6 +216,9 @@ export async function GET(
         headers.set("Content-Type", image.mimeType || "image/png");
         headers.set("Cache-Control", "public, max-age=3600");
         headers.set("Access-Control-Allow-Origin", "*");
+        headers.set("Access-Control-Allow-Methods", "GET");
+        headers.set("Access-Control-Allow-Headers", "Content-Type");
+        headers.set("X-Content-Type-Options", "nosniff");
         
         return new NextResponse(imageBuffer, {
           status: 200,
@@ -265,6 +280,9 @@ export async function GET(
         headers.set("Content-Type", image.mimeType || "image/png");
         headers.set("Cache-Control", "public, max-age=3600");
         headers.set("Access-Control-Allow-Origin", "*");
+        headers.set("Access-Control-Allow-Methods", "GET");
+        headers.set("Access-Control-Allow-Headers", "Content-Type");
+        headers.set("X-Content-Type-Options", "nosniff");
         
         return new NextResponse(imageBuffer, {
           status: 200,
