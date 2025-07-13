@@ -5,11 +5,13 @@ A modern Next.js 15 application that provides a unified interface for generating
 ## Features
 
 - 🎨 **Multiple AI Providers**: Support for OpenAI DALL-E, Stability AI, and Replicate
+- ✏️ **Image Editing**: Edit and modify generated images with AI (Pro feature)
 - 🌓 **Dark/Light Mode**: Toggle between themes with system preference detection
 - ⚡ **Fast & Modern**: Built with Next.js 15, TypeScript, and Tailwind CSS
 - 🎯 **Smart Routing**: Automatic provider fallback and selection
 - 📱 **Responsive Design**: Works beautifully on all devices
 - 🔄 **Real-time Generation**: Live image generation with progress indicators
+- 💎 **Premium Features**: Paid users get access to advanced features like image editing
 
 ## Getting Started
 
@@ -57,6 +59,9 @@ STABILITY_API_KEY=your_stability_api_key_here
 
 # Replicate API Token (required for Replicate)
 REPLICATE_API_TOKEN=your_replicate_api_token_here
+
+# Google Gemini API Key (required for Gemini image editing)
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 5. Run the development server:
@@ -134,6 +139,48 @@ Generate an image using the specified provider.
   }
 }
 ```
+
+### POST `/api/images/edit`
+
+Edit an existing image using AI (Pro feature only).
+
+**Request Body:**
+
+```json
+{
+  "imageUrl": "https://example.com/image.jpg",
+  "prompt": "Add a rainbow to this image",
+  "provider": "openai",
+  "model": "gpt-image-1"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "images": ["https://..."],
+  "usage": {
+    "total_tokens": 45,
+    "input_tokens": 30,
+    "output_tokens": 15
+  }
+}
+```
+
+**Error Response (Free User):**
+
+```json
+{
+  "error": "Image editing is only available for paid users. Please upgrade your account."
+}
+```
+
+**Supported Models:**
+
+- **OpenAI**: `gpt-image-1`, `dall-e-2`
+- **Google**: `gemini-2.0-flash-preview-image-generation`
 
 ### GET `/api/providers`
 

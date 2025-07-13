@@ -32,14 +32,16 @@ export function GeneratedImage({
 
   const imageUrl = (() => {
     if (!src) return '';
+    if (src.startsWith('data:')) return src; // Handle base64 data URLs
     if (src.startsWith('http://') || src.startsWith('https://')) return src;
     if (src.startsWith('/api/')) return src;
     if (src.startsWith('/')) return src;
     return `/api/images/${src}`;
   })();
 
-  // Check if this is an API route that should be unoptimized
+  // Check if this is an API route or base64 data URL that should be unoptimized
   const isApiRoute = imageUrl.startsWith('/api/');
+  const isDataUrl = imageUrl.startsWith('data:');
 
   const handleError = () => {
     setImageError(true);
@@ -91,7 +93,7 @@ export function GeneratedImage({
         alt={alt}
         width={width}
         height={height}
-        unoptimized={isApiRoute} // Disable optimization for API routes
+        unoptimized={isApiRoute || isDataUrl} // Disable optimization for API routes and base64 data URLs
         className={className}
         onClick={onClick}
         onError={handleError}
