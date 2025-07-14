@@ -271,7 +271,7 @@ export default function BillingPage() {
                   <div className="mb-6 space-y-2">
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                       <Check className="mr-2 h-4 w-4 text-green-500" />
-                      Generate {pkg.credits + pkg.bonus} images
+                      up to {pkg.credits + pkg.bonus} images
                     </div>
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                       <Check className="mr-2 h-4 w-4 text-green-500" />

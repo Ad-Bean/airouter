@@ -1,8 +1,8 @@
-import { checkCredits, deductCredits } from "@/lib/credits";
-import { generateWithOpenAI } from "@/lib/providers/openai";
-import { generateWithGoogle } from "@/lib/providers/google";
+import { checkCredits, deductCredits } from '@/lib/credits';
+import { generateWithOpenAI } from '@/lib/providers/openai';
+import { generateWithGoogle } from '@/lib/providers/google';
 
-export type Provider = "openai" | "google";
+export type Provider = 'openai' | 'google';
 
 export interface GenerateImageParams {
   prompt: string;
@@ -13,7 +13,7 @@ export interface GenerateImageParams {
   steps?: number;
   n?: number; // For OpenAI models
   sampleCount?: number; // For Google Vertex AI models
-  quality?: "standard" | "hd" | "low" | "medium" | "high";
+  quality?: 'standard' | 'hd' | 'low' | 'medium' | 'high';
 }
 
 export interface GenerateImageResponse {
@@ -44,26 +44,26 @@ export interface GenerateImageResponse {
  */
 export async function generateImageDirect(
   params: GenerateImageParams,
-  userId: string
+  userId: string,
 ): Promise<GenerateImageResponse> {
   const {
     prompt,
-    provider = "openai",
+    provider = 'openai',
     model,
     width = 1024,
     height = 1024,
     n,
     sampleCount,
-    quality = "standard",
+    quality = 'standard',
   } = params;
 
   if (!prompt) {
     return {
       success: false,
       provider,
-      model: model || "default",
+      model: model || 'default',
       images: [],
-      error: "Prompt is required",
+      error: 'Prompt is required',
     };
   }
 
@@ -71,90 +71,127 @@ export async function generateImageDirect(
     // Calculate generation cost and check credits
     const size = `${width}x${height}`;
     const creditCheck = await checkCredits(userId, provider, model, size, quality);
-    
+
     if (!creditCheck.hasEnough) {
       return {
         success: false,
         provider,
-        model: model || "default",
+        model: model || 'default',
         images: [],
         error: `Insufficient credits. Required: ${creditCheck.required}, Available: ${creditCheck.available}`,
       };
     }
 
-  let result;
+    let result;
 
-  switch (provider) {
-    case "openai":
-      result = await generateWithOpenAI({
-        prompt,
-        model:
-          (model as "gpt-image-1" | "dall-e-2" | "dall-e-3" | undefined) ||
-          "dall-e-2",
-        size: `${width}x${height}` as
-          | "256x256"
-          | "512x512"
-          | "1024x1024"
-          | "1792x1024"
-          | "1024x1792"
-          | "1024x1536"
-          | "1536x1024",
-        quality: quality as "standard" | "hd" | "low" | "medium" | "high",
-        n: n || 1,
-      });
-      break;
+    switch (provider) {
+      case 'openai':
+        result = await generateWithOpenAI({
+          prompt,
+          model: (model as 'gpt-image-1' | 'dall-e-2' | 'dall-e-3' | undefined) || 'dall-e-2',
+          size: `${width}x${height}` as
+            | '256x256'
+            | '512x512'
+            | '1024x1024'
+            | '1792x1024'
+            | '1024x1792'
+            | '1024x1536'
+            | '1536x1024',
+          quality: quality as 'standard' | 'hd' | 'low' | 'medium' | 'high',
+          n: n || 1,
+        });
+        break;
 
-    case "google":
-      result = await generateWithGoogle({
-        prompt,
-        model: (model as "imagen-4-preview" | "imagen-4-standard" | "imagen-4-ultra" | "imagen-3" | "imagen-4.0-generate-preview-06-06" | undefined) || "imagen-4-preview",
-        sampleCount: sampleCount || 1,
-      });
-      break;
+      case 'google':
+        result = await generateWithGoogle({
+          prompt,
+          model:
+            (model as
+              | 'imagen-4-preview'
+              | 'imagen-4-standard'
+              | 'imagen-4-ultra'
+              | 'imagen-3'
+              | 'imagen-4.0-generate-preview-06-06'
+              | undefined) || 'imagen-4-preview',
+          sampleCount: sampleCount || 1,
+        });
+        break;
 
-    default:
-      return {
-        success: false,
-        provider,
-        model: model || "default",
-        images: [],
-        error: "Invalid provider",
-      };
-  }
+      default:
+        return {
+          success: false,
+          provider,
+          model: model || 'default',
+          images: [],
+          error: 'Invalid provider',
+        };
+    }
 
-  // Deduct credits after successful generation
-  const usageData = result.usage && 'total_tokens' in result.usage ? result.usage : undefined;
-  const deductResult = await deductCredits({
-    userId,
-    provider,
-    model,
-    size,
-    quality,
-    usage: usageData,
-    description: `Generated image: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}`,
-  });
+    // Deduct credits after successful generation
+    let usageData:
+      | {
+          total_tokens?: number;
+          input_tokens?: number;
+          output_tokens?: number;
+          input_tokens_details?: {
+            text_tokens?: number;
+            image_tokens?: number;
+          };
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+          promptTokensDetails?: Array<{
+            modality: string;
+            tokenCount: number;
+          }>;
+          candidatesTokensDetails?: Array<{
+            modality: string;
+            tokenCount: number;
+          }>;
+        }
+      | undefined = undefined;
 
-  if (!deductResult.success) {
-    console.error("Failed to deduct credits:", deductResult.error);
-    // Still return success since image was generated
-  }
+    if (result.usage) {
+      if ('total_tokens' in result.usage) {
+        // OpenAI-style usage data
+        usageData = result.usage;
+      } else if ('promptTokenCount' in result.usage || 'candidatesTokenCount' in result.usage) {
+        // Google-style usage data
+        usageData = result.usage;
+      }
+    }
 
-  return {
-    success: true,
-    provider,
-    model: model || "default",
-    creditsDeducted: deductResult.creditsDeducted,
-    remainingCredits: deductResult.remainingCredits,
-    ...result,
-  };
+    const deductResult = await deductCredits({
+      userId,
+      provider,
+      model,
+      size,
+      quality,
+      usage: usageData,
+      description: `Generated image: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}`,
+    });
+
+    if (!deductResult.success) {
+      console.error('Failed to deduct credits:', deductResult.error);
+      // Still return success since image was generated
+    }
+
+    return {
+      success: true,
+      provider,
+      model: model || 'default',
+      creditsDeducted: deductResult.creditsDeducted,
+      remainingCredits: deductResult.remainingCredits,
+      ...result,
+    };
   } catch (error) {
     console.error(`Error in generateImageDirect for provider ${provider}:`, error);
     return {
       success: false,
       provider,
-      model: model || "default",
+      model: model || 'default',
       images: [],
-      error: error instanceof Error ? error.message : "Unknown error occurred",
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }

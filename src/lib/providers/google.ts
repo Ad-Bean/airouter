@@ -22,6 +22,17 @@ export interface GoogleGenerateResponse {
   images: string[];
   usage?: {
     prediction_id?: string;
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+    promptTokensDetails?: Array<{
+      modality: string;
+      tokenCount: number;
+    }>;
+    candidatesTokensDetails?: Array<{
+      modality: string;
+      tokenCount: number;
+    }>;
   };
   model?: string;
 }
@@ -43,6 +54,17 @@ export interface GoogleEditResponse {
   images: string[];
   usage?: {
     prediction_id?: string;
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+    promptTokensDetails?: Array<{
+      modality: string;
+      tokenCount: number;
+    }>;
+    candidatesTokensDetails?: Array<{
+      modality: string;
+      tokenCount: number;
+    }>;
   };
   model?: string;
 }
@@ -171,6 +193,12 @@ export async function generateWithGoogle(
         images,
         usage: {
           prediction_id: result.metadata?.prediction_id,
+          // Extract usage metadata from Gemini API response
+          promptTokenCount: result.usageMetadata?.promptTokenCount,
+          candidatesTokenCount: result.usageMetadata?.candidatesTokenCount,
+          totalTokenCount: result.usageMetadata?.totalTokenCount,
+          promptTokensDetails: result.usageMetadata?.promptTokensDetails,
+          candidatesTokensDetails: result.usageMetadata?.candidatesTokensDetails,
         },
         model,
       };
@@ -511,6 +539,12 @@ export async function editImageWithGoogle(params: GoogleEditParams): Promise<Goo
       images,
       usage: {
         prediction_id: result.metadata?.prediction_id,
+        // Extract usage metadata from Gemini API response
+        promptTokenCount: result.usageMetadata?.promptTokenCount,
+        candidatesTokenCount: result.usageMetadata?.candidatesTokenCount,
+        totalTokenCount: result.usageMetadata?.totalTokenCount,
+        promptTokensDetails: result.usageMetadata?.promptTokensDetails,
+        candidatesTokensDetails: result.usageMetadata?.candidatesTokensDetails,
       },
       model,
     };

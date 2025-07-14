@@ -2,11 +2,20 @@
 
 export const CREDIT_PACKAGES = [
   {
-    id: 'starter',
+    id: 'starter-50',
+    name: 'Starter Pack',
+    credits: 50,
+    price: 499, // $4.99 in cents
+    popular: false,
+    description: 'Perfect for getting started',
+    bonus: 0,
+  },
+  {
+    id: 'starter-100',
     name: 'Starter Pack',
     credits: 100,
     price: 999, // $9.99 in cents
-    popular: false,
+    popular: true,
     description: 'Perfect for getting started',
     bonus: 0,
   },
@@ -15,7 +24,7 @@ export const CREDIT_PACKAGES = [
     name: 'Popular Pack',
     credits: 500,
     price: 3999, // $39.99 in cents
-    popular: true,
+    popular: false,
     description: 'Great value for regular use',
     bonus: 50, // Bonus credits
   },
@@ -28,15 +37,15 @@ export const CREDIT_PACKAGES = [
     description: 'For power users',
     bonus: 150, // Bonus credits
   },
-  {
-    id: 'enterprise',
-    name: 'Enterprise Pack',
-    credits: 5000,
-    price: 29999, // $299.99 in cents
-    popular: false,
-    description: 'For teams and businesses',
-    bonus: 1000, // Bonus credits
-  },
+  // {
+  //   id: 'enterprise',
+  //   name: 'Enterprise Pack',
+  //   credits: 5000,
+  //   price: 29999, // $299.99 in cents
+  //   popular: false,
+  //   description: 'For teams and businesses',
+  //   bonus: 1000, // Bonus credits
+  // },
 ] as const;
 
 // Cost per image generation by provider and settings (in cents)
@@ -63,9 +72,14 @@ export const GENERATION_COSTS = {
     'imagen-4-standard': 4.0, // $0.04
     'imagen-4-ultra': 6.0, // $0.06
     'imagen-3': 3.0, // $0.03
+    'gemini-2.0-flash-preview-image-generation': 2.0, // $0.02 per output image
     default: 4.0,
   },
 } as const;
+
+// Image editing cost configuration
+export const EDITING_COST_MULTIPLIER = 1.25; // Editing costs 1.25x more than generation
+export const MINIMUM_EDITING_COST = 1.0; // Minimum 1 credit for any editing operation
 
 // GPT-Image-1 token costs (per 1M tokens in USD)
 export const GPT_IMAGE_TOKEN_COSTS = {
@@ -74,12 +88,20 @@ export const GPT_IMAGE_TOKEN_COSTS = {
   output: 40.0, // $40.00 per 1M tokens
 } as const;
 
+// Gemini 2.0 Flash token costs (per 1M tokens/characters in USD)
+export const GEMINI_TOKEN_COSTS = {
+  input_text: 37.5, // $37.50 per 1M characters ($0.0375 per 1M chars)
+  input_image: 19.35, // $19.35 per 100 images ($0.0001935 per image)
+  output_text: 150.0, // $150.00 per 1M characters ($0.15 per 1M chars)
+  output_image: 4.0, // $4.00 per 100 images ($0.04 per image)
+} as const;
+
 // Calculate cost for image generation
 export function calculateGenerationCost(
   provider: keyof typeof GENERATION_COSTS,
   model?: string,
   size?: string,
-  quality?: string
+  quality?: string,
 ): number {
   const providerCosts = GENERATION_COSTS[provider];
 
@@ -134,19 +156,45 @@ export function calculateGenerationCost(
   return 1; // Fallback
 }
 
+// Calculate cost for image editing (higher than generation)
+export function calculateEditingCost(
+  provider: keyof typeof GENERATION_COSTS,
+  model?: string,
+  size?: string,
+  quality?: string,
+): number {
+  const baseCost = calculateGenerationCost(provider, model, size, quality);
+  const editingCost = baseCost * EDITING_COST_MULTIPLIER;
+  return Math.max(editingCost, MINIMUM_EDITING_COST);
+}
+
 // Calculate token cost for GPT-Image-1
 export function calculateGPTImageTokenCost(
   inputTokens: number,
   outputTokens: number,
-  cachedInputTokens: number = 0
+  cachedInputTokens: number = 0,
 ): number {
-  const inputCost =
-    ((inputTokens - cachedInputTokens) * GPT_IMAGE_TOKEN_COSTS.input) / 1000000;
-  const cachedCost =
-    (cachedInputTokens * GPT_IMAGE_TOKEN_COSTS.cached_input) / 1000000;
+  const inputCost = ((inputTokens - cachedInputTokens) * GPT_IMAGE_TOKEN_COSTS.input) / 1000000;
+  const cachedCost = (cachedInputTokens * GPT_IMAGE_TOKEN_COSTS.cached_input) / 1000000;
   const outputCost = (outputTokens * GPT_IMAGE_TOKEN_COSTS.output) / 1000000;
 
   return inputCost + cachedCost + outputCost;
+}
+
+// Calculate token cost for Gemini 2.0 Flash
+export function calculateGeminiTokenCost(
+  inputTextTokens: number,
+  inputImageTokens: number,
+  outputTextTokens: number,
+  outputImageCount: number = 1,
+): number {
+  // Convert tokens to appropriate units for cost calculation
+  const inputTextCost = (inputTextTokens * GEMINI_TOKEN_COSTS.input_text) / 1000000;
+  const inputImageCost = (inputImageTokens * GEMINI_TOKEN_COSTS.input_image) / 1000000;
+  const outputTextCost = (outputTextTokens * GEMINI_TOKEN_COSTS.output_text) / 1000000;
+  const outputImageCost = (outputImageCount * GEMINI_TOKEN_COSTS.output_image) / 100;
+
+  return inputTextCost + inputImageCost + outputTextCost + outputImageCost;
 }
 
 // Calculate total cost for GPT-Image-1 generation (image + tokens)
@@ -161,7 +209,7 @@ export function calculateGPTImageTotalCost(
       text_tokens: number;
       image_tokens: number;
     };
-  }
+  },
 ): number {
   // Image generation cost
   const imageCost = calculateGenerationCost('openai', 'gpt-image-1', size, quality);
@@ -169,13 +217,75 @@ export function calculateGPTImageTotalCost(
   // Token cost (if usage data is provided)
   let tokenCost = 0;
   if (usage) {
-    tokenCost = calculateGPTImageTokenCost(
-      usage.input_tokens,
-      usage.output_tokens
-    );
+    tokenCost = calculateGPTImageTokenCost(usage.input_tokens, usage.output_tokens);
   }
 
   return imageCost + tokenCost;
+}
+
+// Calculate total cost for Gemini 2.0 Flash generation (image + tokens)
+export function calculateGeminiTotalCost(usage?: {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+  promptTokensDetails?: Array<{
+    modality: string;
+    tokenCount: number;
+  }>;
+  candidatesTokensDetails?: Array<{
+    modality: string;
+    tokenCount: number;
+  }>;
+}): number {
+  // Always include base image cost
+  const baseImageCost = calculateGenerationCost(
+    'google',
+    'gemini-2.0-flash-preview-image-generation',
+  );
+
+  if (!usage) {
+    // Return base cost if no usage data
+    return baseImageCost;
+  }
+
+  // Extract token counts by modality
+  let inputTextTokens = 0;
+  let inputImageTokens = 0;
+  let outputTextTokens = 0;
+  let outputImageTokens = 0;
+
+  // Parse prompt tokens (input)
+  if (usage.promptTokensDetails) {
+    for (const detail of usage.promptTokensDetails) {
+      if (detail.modality === 'TEXT') {
+        inputTextTokens += detail.tokenCount;
+      } else if (detail.modality === 'IMAGE') {
+        inputImageTokens += detail.tokenCount;
+      }
+    }
+  }
+
+  // Parse candidate tokens (output)
+  if (usage.candidatesTokensDetails) {
+    for (const detail of usage.candidatesTokensDetails) {
+      if (detail.modality === 'TEXT') {
+        outputTextTokens += detail.tokenCount;
+      } else if (detail.modality === 'IMAGE') {
+        outputImageTokens += detail.tokenCount;
+      }
+    }
+  }
+
+  // Calculate token cost
+  const tokenCost = calculateGeminiTokenCost(
+    inputTextTokens,
+    inputImageTokens,
+    outputTextTokens,
+    outputImageTokens > 0 ? 1 : 0, // Assume 1 image generated if image tokens present
+  );
+
+  // Return base image cost + token cost
+  return baseImageCost + tokenCost;
 }
 
 // Free tier limits

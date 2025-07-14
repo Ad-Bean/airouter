@@ -7,6 +7,7 @@ import { getAutoDeleteDate } from '@/lib/storage-utils';
 import { type Provider } from '@/lib/direct-generate';
 import { editImageWithOpenAI, type OpenAIEditResponse } from '@/lib/providers/openai';
 import { editImageWithGoogle, type GoogleEditResponse } from '@/lib/providers/google';
+import { deductCredits, checkCredits } from '@/lib/credits';
 
 export interface EditImageParams {
   imageUrl: string;
@@ -130,7 +131,7 @@ async function editImageDirect(
   }
 
   try {
-    // Check if user is paid
+    // Check if user is paid and has sufficient credits
     const user = await withDatabaseRetry(async () => {
       return await prisma.user.findUnique({
         where: { id: userId },
@@ -156,6 +157,19 @@ async function editImageDirect(
         model: model || 'default',
         images: [],
         error: 'Image editing is only available for paid users. Please upgrade your account.',
+      };
+    }
+
+    // Check if user has sufficient credits for editing
+    const creditCheck = await checkCredits(userId, provider, model, '1024x1024', 'standard', true);
+
+    if (!creditCheck.hasEnough) {
+      return {
+        success: false,
+        provider,
+        model: model || 'default',
+        images: [],
+        error: `Insufficient credits. You need at least ${creditCheck.required} credits for image editing. Current balance: ${creditCheck.available}`,
       };
     }
 
@@ -219,12 +233,73 @@ async function editImageDirect(
         };
     }
 
+    // Deduct credits after successful editing
+    let usageData:
+      | {
+          total_tokens?: number;
+          input_tokens?: number;
+          output_tokens?: number;
+          input_tokens_details?: {
+            text_tokens?: number;
+            image_tokens?: number;
+          };
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+          promptTokensDetails?: Array<{
+            modality: string;
+            tokenCount: number;
+          }>;
+          candidatesTokensDetails?: Array<{
+            modality: string;
+            tokenCount: number;
+          }>;
+        }
+      | undefined = undefined;
+
+    if (providerResult.usage) {
+      if ('total_tokens' in providerResult.usage) {
+        // OpenAI-style usage data
+        usageData = providerResult.usage;
+      } else if (
+        'promptTokenCount' in providerResult.usage ||
+        'candidatesTokenCount' in providerResult.usage
+      ) {
+        // Google-style usage data
+        usageData = providerResult.usage;
+      }
+    }
+
+    const deductResult = await deductCredits({
+      userId,
+      provider,
+      model,
+      size: '1024x1024', // Default size for editing
+      quality: 'standard', // Default quality for editing
+      isEditing: true, // Flag to indicate this is for image editing
+      usage: usageData,
+      description: `Image editing: ${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}`,
+    });
+
+    if (!deductResult.success) {
+      console.error('Failed to deduct credits for image editing:', deductResult.error);
+      return {
+        success: false,
+        provider,
+        model: model || 'default',
+        images: [],
+        error: `Credit deduction failed: ${deductResult.error}`,
+      };
+    }
+
     return {
       success: true,
       provider,
       model: providerResult.model || model || 'default',
       images: providerResult.images || [],
       usage: providerResult.usage,
+      creditsDeducted: deductResult.creditsDeducted,
+      remainingCredits: deductResult.remainingCredits,
     };
   } catch (error) {
     console.error(`Error editing image with ${provider}:`, error);
