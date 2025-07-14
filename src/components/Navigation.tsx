@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { ImageIcon, Sun, Moon, User, LogOut } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
-import Link from "next/link";
-import Image from "next/image";
-import { useState } from "react";
+import { ImageIcon, Sun, Moon, User, LogOut } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { useState } from 'react';
 
 interface NavigationProps {
   isDark: boolean;
@@ -25,58 +25,49 @@ export function Navigation({
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
-    <nav className="relative z-50 px-6 py-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 transition-all duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <nav className="relative z-50 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur-sm transition-all duration-300 dark:border-gray-700 dark:bg-gray-900/90">
+      <div className="mx-auto flex max-w-7xl items-center justify-between">
         {!hideLogo && (
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <ImageIcon className="w-5 h-5 text-white" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
+              <ImageIcon className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-white">
-              AIRouter
-            </span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">AIRouter</span>
           </Link>
         )}
 
-        <div
-          className={`hidden md:flex items-center space-x-8 ${hideLogo ? "ml-auto" : ""
-            }`}
-        >
-          <a
-            href="#features"
-            className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+        <div className={`hidden items-center space-x-8 md:flex ${hideLogo ? 'ml-auto' : ''}`}>
+          <Link
+            href="/#features"
+            className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
           >
             Features
-          </a>
+          </Link>
           <Link
             href="/models"
-            className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+            className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
           >
             Models
           </Link>
-          <a
-            href="#pricing"
-            className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+          <Link
+            href="/models"
+            className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
           >
             Pricing
-          </a>
+          </Link>
           <button
             onClick={onToggleTheme}
-            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
             aria-label="Toggle theme"
           >
-            {isDark ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
 
           {session ? (
             <div className="relative">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
               >
                 {session.user?.image ? (
                   <Image
@@ -87,37 +78,37 @@ export function Navigation({
                     className="rounded-full"
                   />
                 ) : (
-                  <User className="w-5 h-5" />
+                  <User className="h-5 w-5" />
                 )}
                 <span>{session.user?.name || session.user?.email}</span>
               </button>
 
               {showDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50">
+                <div className="absolute right-0 z-50 mt-2 w-48 rounded-md bg-white py-1 shadow-lg dark:bg-gray-800">
                   <Link
                     href="/chat"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                     onClick={() => setShowDropdown(false)}
                   >
                     Chat
                   </Link>
                   <Link
                     href="/billing"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                     onClick={() => setShowDropdown(false)}
                   >
                     Billing
                   </Link>
                   <Link
                     href="/dashboard"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                     onClick={() => setShowDropdown(false)}
                   >
                     Dashboard
                   </Link>
                   <Link
                     href="/gallery"
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                     onClick={() => setShowDropdown(false)}
                   >
                     Gallery
@@ -128,9 +119,9 @@ export function Navigation({
                       signOut();
                       setShowDropdown(false);
                     }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </button>
                 </div>
@@ -140,13 +131,13 @@ export function Navigation({
             <>
               <button
                 onClick={onShowLogin}
-                className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
               >
                 Sign In
               </button>
               <button
                 onClick={onShowRegister}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700"
               >
                 Get Started
               </button>
@@ -155,33 +146,26 @@ export function Navigation({
         </div>
 
         {/* Mobile menu button */}
-        <div
-          className={`md:hidden flex items-center space-x-2 ${hideLogo ? "ml-auto" : ""
-            }`}
-        >
+        <div className={`flex items-center space-x-2 md:hidden ${hideLogo ? 'ml-auto' : ''}`}>
           <button
             onClick={onToggleTheme}
-            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
             aria-label="Toggle theme"
           >
-            {isDark ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
 
           {session ? (
             <Link
               href="/dashboard"
-              className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
             >
-              <User className="w-5 h-5" />
+              <User className="h-5 w-5" />
             </Link>
           ) : (
             <button
               onClick={onShowLogin}
-              className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              className="rounded-lg border border-blue-200 px-3 py-1 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
             >
               Sign In
             </button>

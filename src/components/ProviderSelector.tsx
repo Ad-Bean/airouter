@@ -46,12 +46,12 @@ export function ProviderSelector({
                 className="sr-only"
               />
               <div
-                className={`w-8 h-8 rounded-lg bg-gradient-to-br ${config.color} flex items-center justify-center text-white flex-shrink-0`}
+                className={`w-8 h-8 rounded-lg bg-gradient-to-br ${config.color} flex items-center justify-center text-white flex-shrink-0 border border-white/30 dark:border-gray-700 shadow-sm dark:shadow-none`}
               >
                 <IconComponent className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium block">
+                <span className="text-sm font-medium block text-gray-900 dark:text-gray-100">
                   {config.displayName}
                 </span>
               </div>
