@@ -124,6 +124,28 @@ function ChatPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Additional safety check to ensure isGenerating is reset when no messages are generating
+  useEffect(() => {
+    if (isGenerating && messages.length > 0) {
+      const hasGeneratingMessages = messages.some((msg) => msg.status === 'generating');
+      if (!hasGeneratingMessages) {
+        setIsGenerating(false);
+      }
+    }
+  }, [messages, isGenerating]);
+
+  // Fallback safety mechanism: Force reset generating state after a reasonable time
+  useEffect(() => {
+    if (!isGenerating) return;
+
+    const fallbackTimer = setTimeout(() => {
+      console.warn('Forcing isGenerating reset after timeout - generation may have stuck');
+      setIsGenerating(false);
+    }, 150000); // 2.5 minutes fallback
+
+    return () => clearTimeout(fallbackTimer);
+  }, [isGenerating]);
+
   // Additional scroll trigger for when user sends a message
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -186,7 +208,7 @@ function ChatPageContent() {
 
   // Polling for message updates during generation
   useEffect(() => {
-    if (!isGenerating) return;
+    if (!isGenerating && !messages.some((msg) => msg.status === 'generating')) return;
 
     let pollAttempts = 0;
     const maxPollAttempts = 40; // 40 attempts * 3 seconds = 2 minutes max
@@ -304,18 +326,11 @@ function ChatPageContent() {
             return hasChanges ? mergedMessages : prevMessages;
           });
 
+          // Check if any messages are still generating after update
           const stillGenerating = updatedMessages.some((msg) => msg.status === 'generating');
-          console.log(
-            `Polling update: stillGenerating=${stillGenerating}, messages:`,
-            updatedMessages.map((m) => ({
-              id: m.id,
-              status: m.status,
-              imageUrls: m.imageUrls,
-              imageCount: m.imageUrls?.length || 0,
-            })),
-          );
 
-          if (!stillGenerating) {
+          // Only stop generation if no messages are generating AND we are currently in generating state
+          if (!stillGenerating && isGenerating) {
             setIsGenerating(false);
           }
         } else {
@@ -355,7 +370,7 @@ function ChatPageContent() {
 
     const interval = setInterval(pollMessages, 3000);
     return () => clearInterval(interval);
-  }, [isGenerating, currentSessionId]);
+  }, [isGenerating, currentSessionId, messages]);
 
   const handleNewChat = () => {
     setMessages([]);

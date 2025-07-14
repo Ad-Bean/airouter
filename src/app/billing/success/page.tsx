@@ -47,11 +47,8 @@ function BillingSuccessContent() {
 
   const verifyPayment = async (sessionId: string) => {
     try {
-      console.log('Verifying payment for session:', sessionId);
       const response = await fetch(`/api/billing/verify-new?session_id=${sessionId}`);
       const data = await response.json();
-
-      console.log('Verification response:', response.status, data);
 
       if (response.ok) {
         setVerificationStatus('success');
