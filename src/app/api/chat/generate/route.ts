@@ -260,6 +260,50 @@ async function generateImagesBackground(
   userId: string,
 ) {
   try {
+    // Helper function to update message with new images progressively
+    async function updateMessageWithNewImages(completedProvider: string, newImageUrls: string[]) {
+      try {
+        // Get current message state
+        const currentMessage = await prisma.chatMessage.findUnique({
+          where: { id: messageId },
+          select: { imageUrls: true, metadata: true },
+        });
+
+        if (!currentMessage) return;
+
+        // Merge new images with existing ones
+        const existingUrls = currentMessage.imageUrls || [];
+        const allUrls = [...existingUrls, ...newImageUrls];
+
+        // Update image provider map
+        const currentMetadata = (currentMessage.metadata as Record<string, unknown>) || {};
+        const imageProviderMap = (currentMetadata.imageProviderMap as Record<string, string>) || {};
+
+        newImageUrls.forEach((url) => {
+          imageProviderMap[url] = completedProvider;
+        });
+
+        // Update the message with new images while keeping it in "generating" status
+        await prisma.chatMessage.update({
+          where: { id: messageId },
+          data: {
+            imageUrls: allUrls,
+            metadata: {
+              ...currentMetadata,
+              imageProviderMap,
+            },
+            updatedAt: new Date(),
+          },
+        });
+
+        console.log(
+          `Updated message ${messageId} with ${newImageUrls.length} new images from ${completedProvider}. Total images: ${allUrls.length}`,
+        );
+      } catch (error) {
+        console.error(`Error updating message with new images:`, error);
+      }
+    }
+
     const generationPromises = providers.map(async (provider) => {
       try {
         const count = imageCount[provider] || 1;
@@ -317,6 +361,11 @@ async function generateImagesBackground(
             }
           }
 
+          // Update message immediately with new images
+          if (imageUrls.length > 0) {
+            await updateMessageWithNewImages(provider, imageUrls);
+          }
+
           return { success: true, provider, imageUrls, error: null };
         }
 
@@ -344,6 +393,8 @@ async function generateImagesBackground(
         const providerResult = result.value;
         const provider = providers[index];
 
+        console.log(`Provider ${provider} result:`, providerResult);
+
         if (providerResult.success) {
           providerResult.imageUrls.forEach((imageUrl) => {
             allImageUrls.push(imageUrl);
@@ -354,8 +405,15 @@ async function generateImagesBackground(
         }
       } else {
         const provider = providers[index];
+        console.log(`Provider ${provider} rejected:`, result.reason);
         providerErrors[provider] = result.reason?.message || 'Generation failed';
       }
+    });
+
+    console.log(`Final results for message ${messageId}:`, {
+      allImageUrls: allImageUrls.length,
+      providerErrors,
+      providers,
     });
 
     // Update message with final results
@@ -382,6 +440,10 @@ async function generateImagesBackground(
       const userType = user?.userType || 'free';
       const autoDeleteAt = hasImages ? getAutoDeleteDate(userType) : undefined;
 
+      console.log(
+        `Updating message ${messageId} with status: ${status}, images: ${allImageUrls.length}, errors: ${Object.keys(providerErrors).length}`,
+      );
+
       await prisma.chatMessage.update({
         where: { id: messageId },
         data: {
@@ -407,6 +469,7 @@ async function generateImagesBackground(
     // Mark message as failed
     try {
       await withDatabaseRetry(async () => {
+        console.log(`Marking message ${messageId} as failed due to error`);
         await prisma.chatMessage.update({
           where: { id: messageId },
           data: {

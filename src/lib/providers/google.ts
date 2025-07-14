@@ -117,9 +117,11 @@ export async function generateWithGoogle(
           },
         ],
         generationConfig: {
-          responseModalities: ['IMAGE'],
+          responseModalities: ['TEXT', 'IMAGE'],
         },
       };
+
+      console.log('Google Gemini API request:', JSON.stringify(requestBody, null, 2));
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -137,6 +139,8 @@ export async function generateWithGoogle(
 
       const result = await response.json();
 
+      console.log('Google Gemini API response:', JSON.stringify(result, null, 2));
+
       // Extract images from response
       const images: string[] = [];
 
@@ -144,9 +148,9 @@ export async function generateWithGoogle(
         for (const candidate of result.candidates) {
           if (candidate.content && candidate.content.parts) {
             for (const part of candidate.content.parts) {
-              if (part.inline_data && part.inline_data.data) {
-                const mimeType = part.inline_data.mime_type || 'image/png';
-                images.push(`data:${mimeType};base64,${part.inline_data.data}`);
+              if (part.inlineData && part.inlineData.data) {
+                const mimeType = part.inlineData.mimeType || 'image/png';
+                images.push(`data:${mimeType};base64,${part.inlineData.data}`);
               }
             }
           }
@@ -154,8 +158,14 @@ export async function generateWithGoogle(
       }
 
       if (images.length === 0) {
+        console.error(
+          'No images found in Google Gemini API response:',
+          JSON.stringify(result, null, 2),
+        );
         throw new Error('No images returned from Gemini API');
       }
+
+      console.log(`Successfully extracted ${images.length} images from Google Gemini API`);
 
       return {
         images,

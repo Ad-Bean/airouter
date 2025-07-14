@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   MessageSquare,
   Plus,
@@ -13,15 +13,16 @@ import {
   Menu,
   Image as ImageIcon,
   Cpu,
-} from "lucide-react";
-import { ChatSession } from "@/types/chat";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from 'lucide-react';
+import { ChatSession } from '@/types/chat';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface ChatSidebarProps {
   currentSessionId?: string;
   onNewChat: () => void;
+  onSessionSelect?: (sessionId: string) => void; // Callback when a session is selected
   isCollapsed: boolean;
   onToggle: () => void;
   onSessionsRefresh?: () => void; // Optional callback when sessions are refreshed
@@ -30,6 +31,7 @@ interface ChatSidebarProps {
 export function ChatSidebar({
   currentSessionId,
   onNewChat,
+  onSessionSelect,
   isCollapsed,
   onToggle,
   onSessionsRefresh,
@@ -37,12 +39,9 @@ export function ChatSidebar({
   const { data: session } = useSession();
   const router = useRouter();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [selectedSessionId, setSelectedSessionId] = useState<
-    string | undefined
-  >(currentSessionId);
+  const [editTitle, setEditTitle] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(currentSessionId);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
@@ -52,22 +51,22 @@ export function ChatSidebar({
 
   const fetchSessions = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await fetch("/api/chat/sessions");
+      // setLoading(true);
+      const response = await fetch('/api/chat/sessions');
       if (response.ok) {
         const data = await response.json();
         setSessions(data.sessions || []);
         onSessionsRefresh?.(); // Notify parent if callback provided
       } else {
-        console.error("Failed to fetch sessions:", response.status);
+        console.error('Failed to fetch sessions:', response.status);
         // Don't show error to user for session fetching failures
         setSessions([]);
       }
     } catch (error) {
-      console.error("Failed to fetch chat sessions:", error);
+      console.error('Failed to fetch chat sessions:', error);
       setSessions([]);
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   }, [onSessionsRefresh]);
 
@@ -91,16 +90,23 @@ export function ChatSidebar({
 
   const handleNewChat = () => {
     onNewChat();
-    router.push("/chat");
+    // Update URL without triggering navigation for smoother experience
+    const newUrl = '/chat';
+    window.history.replaceState({ ...window.history.state, url: newUrl }, '', newUrl);
   };
 
   const handleSessionClick = (sessionId: string) => {
     // Immediately update local state for instant visual feedback
     setSelectedSessionId(sessionId);
 
-    // Always navigate to ensure URL is updated and session is properly loaded
-    // Even if we think we're on the same session, the URL might be different
-    router.push(`/chat?session=${sessionId}`);
+    // Call the callback to load the session (if provided)
+    if (onSessionSelect) {
+      onSessionSelect(sessionId);
+    }
+
+    // Update URL without triggering navigation for smoother experience
+    const newUrl = `/chat?session=${sessionId}`;
+    window.history.replaceState({ ...window.history.state, url: newUrl }, '', newUrl);
 
     // Auto-collapse sidebar on mobile after selection
     if (window.innerWidth < 768 && !isCollapsed) {
@@ -112,19 +118,20 @@ export function ChatSidebar({
 
   const confirmDeleteSession = async () => {
     if (!sessionToDelete) return;
-    
+
     try {
       const response = await fetch(`/api/chat/sessions/${sessionToDelete}/delete`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       if (response.ok) {
-        setSessions(sessions.filter(s => s.id !== sessionToDelete));
+        setSessions(sessions.filter((s) => s.id !== sessionToDelete));
         if (currentSessionId === sessionToDelete) {
-          router.push("/chat");
+          // If we're deleting the current session, go back to empty chat
+          onNewChat();
         }
       }
     } catch (error) {
-      console.error("Failed to delete session:", error);
+      console.error('Failed to delete session:', error);
     } finally {
       setSessionToDelete(null);
       setDeleteDialogOpen(false);
@@ -140,28 +147,24 @@ export function ChatSidebar({
   const handleEditSave = async (sessionId: string) => {
     try {
       const response = await fetch(`/api/chat/sessions/${sessionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editTitle }),
       });
       if (response.ok) {
-        setSessions(
-          sessions.map((s) =>
-            s.id === sessionId ? { ...s, title: editTitle } : s
-          )
-        );
+        setSessions(sessions.map((s) => (s.id === sessionId ? { ...s, title: editTitle } : s)));
       }
     } catch (error) {
-      console.error("Failed to update session:", error);
+      console.error('Failed to update session:', error);
     } finally {
       setEditingId(null);
-      setEditTitle("");
+      setEditTitle('');
     }
   };
 
   const handleEditCancel = () => {
     setEditingId(null);
-    setEditTitle("");
+    setEditTitle('');
   };
 
   const formatDate = (dateString: string) => {
@@ -170,50 +173,46 @@ export function ChatSidebar({
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
     return date.toLocaleDateString();
   };
 
   if (!session) return null;
 
+  // Always treat as loaded
   return (
     <>
       {/* Sidebar with improved transitions */}
       <div
-        className={`
-        bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-screen transition-all duration-300 ease-in-out flex flex-col shadow-sm
-        ${isCollapsed ? "w-12" : "w-64"}
-      `}
+        className={`flex h-screen flex-col border-r border-gray-200 bg-white shadow-sm transition-all duration-300 ease-in-out dark:border-gray-700 dark:bg-gray-800 ${isCollapsed ? 'w-12' : 'w-64'} `}
       >
         <div className="border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between p-2">
             {!isCollapsed && (
               <button
-                onClick={() => router.push("/")}
-                className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1 transition-colors"
+                onClick={() => router.push('/')}
+                className="flex items-center space-x-2 rounded-lg p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="Go to home page"
               >
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="w-4 h-4" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg">
+                  <ImageIcon className="h-4 w-4" />
                 </div>
               </button>
             )}
 
             <button
               onClick={onToggle}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-all duration-200"
+              className="rounded-md p-2 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
               title={
-                isCollapsed
-                  ? "Expand sidebar (Click to show chat history)"
-                  : "Collapse sidebar"
+                isCollapsed ? 'Expand sidebar (Click to show chat history)' : 'Collapse sidebar'
               }
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               <Menu
-                className={`w-4 h-4 transition-transform duration-200 ${
-                  isCollapsed ? "rotate-90" : ""
+                className={`h-4 w-4 transition-transform duration-200 ${
+                  isCollapsed ? 'rotate-90' : ''
                 }`}
               />
             </button>
@@ -221,26 +220,26 @@ export function ChatSidebar({
 
           {/* Navigation buttons */}
           {!isCollapsed && (
-            <div className="px-2 pb-2 space-y-1">
+            <div className="space-y-1 px-2 pb-2">
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center gap-2 p-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-medium text-gray-700 transition-all duration-200 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+                <Plus className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>New Chat</span>
               </button>
               <button
-                onClick={() => router.push("/gallery")}
-                className="w-full flex items-center gap-2 p-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                onClick={() => router.push('/gallery')}
+                className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-medium text-gray-700 transition-all duration-200 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                <ImageIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                <ImageIcon className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>Gallery</span>
               </button>
               <button
-                onClick={() => router.push("/models")}
-                className="w-full flex items-center gap-2 p-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                onClick={() => router.push('/models')}
+                className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-medium text-gray-700 transition-all duration-200 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                <Cpu className="w-3.5 h-3.5 flex-shrink-0" />
+                <Cpu className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>Models</span>
               </button>
             </div>
@@ -248,9 +247,9 @@ export function ChatSidebar({
 
           {/* Chats title and toggle */}
           {!isCollapsed && (
-            <div className="px-2 pb-2 mt-4">
+            <div className="mt-4 px-2 pb-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                <h2 className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
                   Chats
                 </h2>
               </div>
@@ -258,36 +257,18 @@ export function ChatSidebar({
           )}
         </div>
 
-        {/* Sessions List - improved overflow handling */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          {loading ? (
-            <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
-              {!isCollapsed ? (
-                <div className="space-y-1.5">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse">
-                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded mb-1"></div>
-                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="animate-pulse">
-                  <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </div>
-              )}
-            </div>
-          ) : sessions.length === 0 ? (
-            <div className={`p-2 ${isCollapsed ? "px-1" : ""}`}>
+        <div className="flex-1 overflow-x-hidden overflow-y-auto">
+          {sessions.length === 0 ? (
+            <div className={`p-2 ${isCollapsed ? 'px-1' : ''}`}>
               {!isCollapsed && (
-                <div className="text-center text-gray-500 dark:text-gray-400 mt-4">
-                  <MessageSquare className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                <div className="mt-4 text-center text-gray-500 dark:text-gray-400">
+                  <MessageSquare className="mx-auto mb-1 h-6 w-6 opacity-50" />
                   <p className="text-xs">No chats yet</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className={`space-y-1 p-1 ${isCollapsed ? "px-0.5" : ""}`}>
+            <div className={`space-y-1 p-1 ${isCollapsed ? 'px-0.5' : ''}`}>
               {sessions.map((chatSession) => (
                 <div key={chatSession.id} className="group relative">
                   {editingId === chatSession.id ? (
@@ -299,21 +280,20 @@ export function ChatSidebar({
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter")
-                              handleEditSave(chatSession.id);
-                            if (e.key === "Escape") handleEditCancel();
+                            if (e.key === 'Enter') handleEditSave(chatSession.id);
+                            if (e.key === 'Escape') handleEditCancel();
                           }}
-                          className="text-xs h-7"
+                          className="h-7 text-xs"
                           autoFocus
                         />
-                        <div className="flex gap-1 mt-1">
+                        <div className="mt-1 flex gap-1">
                           <Button
                             onClick={() => handleEditSave(chatSession.id)}
                             size="sm"
                             variant="ghost"
                             className="h-6 w-6 p-0 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20"
                           >
-                            <Check className="w-3 h-3" />
+                            <Check className="h-3 w-3" />
                           </Button>
                           <Button
                             onClick={handleEditCancel}
@@ -321,22 +301,21 @@ export function ChatSidebar({
                             variant="ghost"
                             className="h-6 w-6 p-0 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
                     )
                   ) : (
                     <div
-                      className={`flex items-center cursor-pointer transition-all duration-200 rounded-md
-                      ${
+                      className={`flex cursor-pointer items-center rounded-md transition-all duration-200 ${
                         selectedSessionId === chatSession.id
-                          ? "bg-blue-100 dark:bg-blue-800"
-                          : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                          ? 'bg-blue-100 dark:bg-blue-800'
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                       onClick={() => handleSessionClick(chatSession.id)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
+                        if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           handleSessionClick(chatSession.id);
                         }
@@ -350,26 +329,22 @@ export function ChatSidebar({
                           : `${chatSession.title} • ${chatSession._count.messages} messages`
                       }
                     >
-                      <div
-                        className={`flex-1 p-2 ${
-                          isCollapsed ? "flex justify-center" : ""
-                        }`}
-                      >
+                      <div className={`flex-1 p-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
                         <div className="flex items-center gap-2">
                           <MessageSquare
                             className={`flex-shrink-0 ${
                               selectedSessionId === chatSession.id
-                                ? "text-blue-700 dark:text-blue-300"
-                                : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300"
-                            } ${isCollapsed ? "w-4 h-4" : "w-3 h-3"}`}
+                                ? 'text-blue-700 dark:text-blue-300'
+                                : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                            } ${isCollapsed ? 'h-4 w-4' : 'h-3 w-3'}`}
                           />
                           {!isCollapsed && (
-                            <div className="flex-1 min-w-0 overflow-hidden">
+                            <div className="min-w-0 flex-1 overflow-hidden">
                               <div
                                 className={`text-xs font-medium ${
                                   selectedSessionId === chatSession.id
-                                    ? "text-blue-800 dark:text-blue-200 font-semibold"
-                                    : "text-gray-900 dark:text-white"
+                                    ? 'font-semibold text-blue-800 dark:text-blue-200'
+                                    : 'text-gray-900 dark:text-white'
                                 }`}
                                 title={chatSession.title}
                               >
@@ -378,10 +353,10 @@ export function ChatSidebar({
                                   : chatSession.title}
                               </div>
                               <div
-                                className={`text-xs flex items-center gap-1 mt-0.5 ${
+                                className={`mt-0.5 flex items-center gap-1 text-xs ${
                                   selectedSessionId === chatSession.id
-                                    ? "text-blue-600 dark:text-blue-400"
-                                    : "text-gray-500 dark:text-gray-400"
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-500 dark:text-gray-400'
                                 }`}
                               >
                                 <span>{chatSession._count.messages} msgs</span>
@@ -395,17 +370,17 @@ export function ChatSidebar({
 
                       {!isCollapsed && (
                         <div
-                          className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 pr-2"
+                          className="flex gap-1 pr-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Button
                             onClick={(e) => handleEditStart(chatSession, e)}
                             size="sm"
                             variant="ghost"
-                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            className="p-1.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-600 dark:hover:text-gray-300"
                             title="Edit title"
                           >
-                            <Edit2 className="w-3 h-3" />
+                            <Edit2 className="h-3 w-3" />
                           </Button>
                           <Button
                             onClick={(e) => {
@@ -415,10 +390,10 @@ export function ChatSidebar({
                             }}
                             size="sm"
                             variant="ghost"
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                            className="p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
                             title="Delete session"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       )}

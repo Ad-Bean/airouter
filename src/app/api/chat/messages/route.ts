@@ -99,6 +99,11 @@ export async function GET(request: NextRequest) {
       });
     });
 
+    console.log(
+      'Messages API Response:',
+      messages.map((m) => ({ id: m.id, status: m.status, imageUrls: m.imageUrls })),
+    );
+
     return NextResponse.json({ messages });
   } catch (error) {
     console.error('Error fetching chat messages:', error);
