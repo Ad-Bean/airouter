@@ -38,21 +38,15 @@ export function AuthModal({
 
     try {
       if (activeTab === 'login') {
-        console.log('Attempting login with:', email);
         const result = await signIn('credentials', {
           email,
           password,
           redirect: false,
         });
 
-        console.log('SignIn result:', result);
-
         if (result?.error) {
-          console.error('SignIn error:', result.error);
           setError('Invalid email or password');
         } else if (result?.ok) {
-          console.log('Login successful');
-          // Check if there are pending values to redirect to chat
           const pendingPrompt = localStorage.getItem('pendingPrompt');
           const pendingProviders = localStorage.getItem('pendingProviders');
 
@@ -60,7 +54,6 @@ export function AuthModal({
             localStorage.setItem('shouldRedirectToChat', 'true');
           }
 
-          // Call the success callback before closing
           onAuthSuccess?.();
           onClose();
         } else {
@@ -68,8 +61,6 @@ export function AuthModal({
           setError('Sign in failed. Please try again.');
         }
       } else {
-        // Register
-        console.log('Attempting registration with:', email, name);
         const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: {
@@ -83,24 +74,18 @@ export function AuthModal({
         });
 
         const data = await response.json();
-        console.log('Registration response:', response.status, data);
 
         if (response.ok) {
-          console.log('Registration successful, attempting auto-login');
-          // Auto sign in after successful registration
           const result = await signIn('credentials', {
             email,
             password,
             redirect: false,
           });
 
-          console.log('Auto-login result:', result);
-
           if (result?.error) {
             console.error('Auto-login error:', result.error);
             setError('Registration successful, but login failed');
           } else if (result?.ok) {
-            console.log('Auto-login successful');
             // Check if there are pending values to redirect to chat
             const pendingPrompt = localStorage.getItem('pendingPrompt');
             const pendingProviders = localStorage.getItem('pendingProviders');

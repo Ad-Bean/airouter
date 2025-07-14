@@ -10,6 +10,7 @@
     "postinstall": "prisma generate --no-engine"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.10.0",
     "@aws-sdk/client-s3": "^3.839.0",
     "@aws-sdk/s3-request-presigner": "^3.839.0",
     "@headlessui/react": "^2.2.4",
@@ -29,7 +30,6 @@
     "next": "15.3.4",
     "next-auth": "^4.24.11",
     "openai": "^5.8.2",
-    "prisma": "^6.10.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "^0.34.3",
@@ -46,6 +46,7 @@
     "eslint-config-next": "15.3.4",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
+    "prisma": "^6.10.1",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"

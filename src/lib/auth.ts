@@ -18,8 +18,6 @@ export const authOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        console.log('Authorize called with:', credentials);
-
         if (!credentials?.email || !credentials?.password) {
           console.log('Missing credentials');
           return null;
@@ -31,22 +29,16 @@ export const authOptions = {
           },
         });
 
-        console.log('User found:', user ? 'Yes' : 'No');
-
-        if (!user || !user.password) {
+        if (!user || !user.password || !user.id) {
           console.log('No user found or no password');
           return null;
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-
-        console.log('Password valid:', isPasswordValid);
-
         if (!isPasswordValid) {
           return null;
         }
 
-        console.log('Returning user:', { id: user.id, email: user.email });
         return {
           id: user.id,
           email: user.email,
@@ -57,20 +49,26 @@ export const authOptions = {
     }),
   ],
   session: {
-    strategy: 'database' as const,
+    strategy: 'jwt' as const,
   },
   pages: {
     signIn: '/login',
   },
   callbacks: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async session({ session, user }: any) {
-      // With database strategy, user object is available directly
-      if (user && session?.user) {
-        session.user.id = user.id;
-        // Fetch the latest user data to get userType
+    async jwt({ token, user }: any) {
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+      }
+      return token;
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async session({ session, token }: any) {
+      if (token && session?.user) {
+        session.user.id = token.id;
         const userData = await prisma.user.findUnique({
-          where: { id: user.id },
+          where: { id: token.id },
           select: { userType: true },
         });
         session.user.userType = userData?.userType || 'free';

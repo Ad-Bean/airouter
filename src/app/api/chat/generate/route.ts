@@ -410,12 +410,6 @@ async function generateImagesBackground(
       }
     });
 
-    console.log(`Final results for message ${messageId}:`, {
-      allImageUrls: allImageUrls.length,
-      providerErrors,
-      providers,
-    });
-
     // Update message with final results
     await withDatabaseRetry(async () => {
       const hasImages = allImageUrls.length > 0;
