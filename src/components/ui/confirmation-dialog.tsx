@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   AlertDialog,
@@ -9,7 +9,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -20,7 +20,7 @@ interface ConfirmationDialogProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel?: () => void;
-  variant?: "default" | "destructive";
+  variant?: 'default' | 'destructive';
 }
 
 export function ConfirmationDialog({
@@ -28,11 +28,11 @@ export function ConfirmationDialog({
   onOpenChange,
   title,
   description,
-  confirmText = "Continue",
-  cancelText = "Cancel",
+  confirmText = 'Continue',
+  cancelText = 'Cancel',
   onConfirm,
   onCancel,
-  variant = "default",
+  variant = 'default',
 }: ConfirmationDialogProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -46,21 +46,26 @@ export function ConfirmationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogDescription className="text-gray-700 dark:text-gray-300">
+            {description}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>
+          <AlertDialogCancel
+            onClick={handleCancel}
+            className="bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+          >
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             className={
-              variant === "destructive"
-                ? "bg-red-600 hover:bg-red-700 focus:ring-red-600"
-                : undefined
+              variant === 'destructive'
+                ? 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-600 dark:bg-red-700 dark:hover:bg-red-800'
+                : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-600 dark:bg-blue-700 dark:hover:bg-blue-800'
             }
           >
             {confirmText}
