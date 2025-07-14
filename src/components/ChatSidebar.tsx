@@ -197,7 +197,7 @@ export function ChatSidebar({
                 title="Go to home page"
               >
                 <div className="flex h-6 w-6 items-center justify-center rounded-lg">
-                  <ImageIcon className="h-4 w-4" />
+                  <ImageIcon className="h-4 w-4 text-gray-700 dark:text-gray-200" />
                 </div>
               </button>
             )}
