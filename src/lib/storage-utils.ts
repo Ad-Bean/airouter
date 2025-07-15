@@ -35,10 +35,7 @@ export async function getStorageStats(): Promise<StorageStats> {
     }),
     prisma.generatedImage.count({
       where: {
-        OR: [
-          { expiresAt: { lte: now } },
-          { autoDeleteAt: { lte: now } },
-        ],
+        OR: [{ expiresAt: { lte: now } }, { autoDeleteAt: { lte: now } }],
         deleted: false,
       },
     }),
@@ -120,10 +117,7 @@ export async function bulkDeleteExpiredImages(): Promise<{
 
   const imagesToDelete = await prisma.generatedImage.findMany({
     where: {
-      OR: [
-        { expiresAt: { lte: now } },
-        { autoDeleteAt: { lte: now } },
-      ],
+      OR: [{ expiresAt: { lte: now } }, { autoDeleteAt: { lte: now } }],
       deleted: false,
     },
     select: {
@@ -132,9 +126,7 @@ export async function bulkDeleteExpiredImages(): Promise<{
     },
   });
 
-  const s3Keys = imagesToDelete
-    .filter(image => image.s3Key)
-    .map(image => image.s3Key!);
+  const s3Keys = imagesToDelete.filter((image) => image.s3Key).map((image) => image.s3Key!);
 
   let s3KeysDeleted = 0;
 
@@ -149,7 +141,7 @@ export async function bulkDeleteExpiredImages(): Promise<{
   }
 
   // Update database
-  const imageIds = imagesToDelete.map(image => image.id);
+  const imageIds = imagesToDelete.map((image) => image.id);
   await prisma.generatedImage.updateMany({
     where: {
       id: { in: imageIds },
@@ -186,7 +178,7 @@ export async function cleanupOrphanedRecords(): Promise<number> {
 
   if (orphanedImages.length === 0) return 0;
 
-  const imageIds = orphanedImages.map(image => image.id);
+  const imageIds = orphanedImages.map((image) => image.id);
   await prisma.generatedImage.updateMany({
     where: {
       id: { in: imageIds },
@@ -261,15 +253,15 @@ export function getTimeRemaining(autoDeleteAt: Date): {
 } {
   const now = new Date();
   const timeDiff = autoDeleteAt.getTime() - now.getTime();
-  
+
   if (timeDiff <= 0) {
-    return { expired: true, timeLeft: "Expired", minutes: 0 };
+    return { expired: true, timeLeft: 'Expired', minutes: 0 };
   }
-  
+
   const minutes = Math.floor(timeDiff / (1000 * 60));
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (days > 0) {
     return { expired: false, timeLeft: `${days}d ${hours % 24}h`, minutes };
   } else if (hours > 0) {

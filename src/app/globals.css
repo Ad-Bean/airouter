@@ -214,3 +214,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+div [data-rmiz-modal-overlay='visible'] {
+  background: rgba(0, 0, 0, 0.6);
+
+  .dark & {
+    background: rgba(20, 20, 20, 0.8);
+  }
+}

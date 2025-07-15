@@ -4,12 +4,15 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Navigation } from '@/components/Navigation';
-import { CheckCircle, Loader2, AlertCircle, CreditCard, Plus } from 'lucide-react';
+import { CheckCircle, Loader2, AlertCircle, CreditCard } from 'lucide-react';
 
 function BillingSuccessContent() {
+  // ...existing code...
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session, status } = useSession();
+  // Determine if user is already paid
+  const isPaid = (session?.user as { userType?: string })?.userType === 'paid';
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>(
     'loading',
   );
@@ -19,8 +22,6 @@ function BillingSuccessContent() {
     packageName: string;
   } | null>(null);
   const [isDark, setIsDark] = useState(false);
-  const [isAddingCredits, setIsAddingCredits] = useState(false);
-  const [creditsAdded, setCreditsAdded] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -70,38 +71,6 @@ function BillingSuccessContent() {
     localStorage.setItem('theme', newTheme ? 'dark' : 'light');
   };
 
-  const handleManualCreditAddition = async () => {
-    const sessionId = searchParams.get('session_id');
-    if (!sessionId) return;
-
-    setIsAddingCredits(true);
-    try {
-      const response = await fetch('/api/billing/add-credits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setCreditsAdded(true);
-        alert(
-          `Success! ${data.creditsAdded} credits added to your account. New balance: ${data.newBalance}`,
-        );
-      } else {
-        alert(`Error: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error adding credits:', error);
-      alert('An error occurred while adding credits. Please try again.');
-    } finally {
-      setIsAddingCredits(false);
-    }
-  };
-
   if (status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -123,7 +92,7 @@ function BillingSuccessContent() {
         onShowRegister={() => router.push('/?showRegister=true')}
       />
 
-      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-2xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="rounded-lg bg-white p-8 shadow-lg dark:bg-gray-800">
           {verificationStatus === 'loading' && (
             <div className="text-center">
@@ -152,12 +121,23 @@ function BillingSuccessContent() {
                 <div className="mb-2 flex items-center justify-center">
                   <CheckCircle className="mr-2 h-6 w-6 text-green-600 dark:text-green-400" />
                   <h3 className="text-lg font-semibold text-green-800 dark:text-green-300">
-                    Account Upgraded to Paid Tier! 🎉
+                    {isPaid ? 'Congratulations!' : 'Account Upgraded to Paid Tier! 🎉'}
                   </h3>
                 </div>
                 <div className="space-y-1 text-center text-sm text-green-700 dark:text-green-300">
-                  <p>✨ Your images now stay for 7 days instead of 10 minutes</p>
-                  <p>🚀 Enjoy premium features and enhanced experience</p>
+                  {isPaid ? (
+                    <>
+                      <p>✨ Your account is already upgraded. Enjoy premium features!</p>
+                      <p>
+                        🚀 Your images stay for 7 days and you have access to all paid features.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>✨ Your images now stay for 7 days instead of 10 minutes</p>
+                      <p>🚀 Enjoy premium features and enhanced experience</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -206,31 +186,6 @@ function BillingSuccessContent() {
                   Start Creating
                 </button>
               </div>
-
-              {!creditsAdded && (
-                <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
-                  <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-                    Credits not showing up? Click below to manually add them:
-                  </p>
-                  <button
-                    onClick={handleManualCreditAddition}
-                    disabled={isAddingCredits}
-                    className="mx-auto flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isAddingCredits ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Adding Credits...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4" />
-                        Manually Add Credits
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           )}
 

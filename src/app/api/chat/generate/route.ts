@@ -81,7 +81,7 @@ async function saveImageToDatabase({
       const autoDeleteAt =
         userType === 'free'
           ? new Date(Date.now() + 10 * 60 * 1000) // Free users: 10 minutes
-          : new Date(Date.now() + 10 * 24 * 60 * 60 * 1000); // Paid users: 10 days
+          : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Paid users: 7 days
 
       return await prisma.generatedImage.create({
         data: {

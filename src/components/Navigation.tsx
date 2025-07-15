@@ -19,24 +19,29 @@ export function Navigation({
   onToggleTheme,
   onShowLogin,
   onShowRegister,
-  hideLogo = false,
 }: NavigationProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
     <nav className="relative z-50 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur-sm transition-all duration-300 dark:border-gray-700 dark:bg-gray-900/90">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
-        {!hideLogo && (
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <ImageIcon className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-white">AIRouter</span>
-          </Link>
-        )}
+        <Link href="/" className="flex items-center space-x-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
+            <ImageIcon className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xl font-bold text-gray-900 dark:text-white">AIRouter</span>
+        </Link>
 
-        <div className={`hidden items-center space-x-8 md:flex ${hideLogo ? 'ml-auto' : ''}`}>
+        <div className={`'ml-auto' hidden items-center space-x-8 md:flex`}>
+          {status === 'authenticated' && (
+            <Link
+              href="/chat"
+              className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+            >
+              Chat
+            </Link>
+          )}
           <Link
             href="/#features"
             className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
@@ -146,7 +151,7 @@ export function Navigation({
         </div>
 
         {/* Mobile menu button */}
-        <div className={`flex items-center space-x-2 md:hidden ${hideLogo ? 'ml-auto' : ''}`}>
+        <div className={`flex items-center space-x-2 md:hidden`}>
           <button
             onClick={onToggleTheme}
             className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"

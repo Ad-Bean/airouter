@@ -4,8 +4,15 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Navigation } from '@/components/Navigation';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import Image from 'next/image';
-import { Heart, Download, Trash2, Grid, List, Search, ImageIcon } from 'lucide-react';
+import Zoom from 'react-medium-image-zoom';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { Tooltip } from '@/components/ui/tooltip';
+import 'react-medium-image-zoom/dist/styles.css';
+import { Download, Trash2, Search, ImageIcon } from 'lucide-react';
 import { GeneratedImage } from '@/types/dashboard';
 import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from '@/config/providers';
 
@@ -22,10 +29,10 @@ interface PaginationInfo {
   pages: number;
 }
 
-type ViewMode = 'grid' | 'list';
 type FilterOption = 'all' | 'favorites' | (typeof AVAILABLE_PROVIDERS)[number];
 
 export default function GalleryPage() {
+  const [selectOpen, setSelectOpen] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
   const [images, setImages] = useState<GeneratedImage[]>([]);
@@ -36,7 +43,7 @@ export default function GalleryPage() {
     total: 0,
     pages: 0,
   });
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  // Only grid view supported
   const [filter, setFilter] = useState<FilterOption>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDark, setIsDark] = useState(false);
@@ -92,24 +99,6 @@ export default function GalleryPage() {
       fetchImages();
     }
   }, [session, fetchImages]);
-
-  const toggleFavorite = async (imageId: string, currentFavorite: boolean) => {
-    try {
-      const response = await fetch(`/api/images/${imageId}/favorite`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isFavorite: !currentFavorite }),
-      });
-
-      if (response.ok) {
-        setImages((prev) =>
-          prev.map((img) => (img.id === imageId ? { ...img, isFavorite: !currentFavorite } : img)),
-        );
-      }
-    } catch (error) {
-      console.error('Failed to toggle favorite:', error);
-    }
-  };
 
   const deleteImage = async (imageId: string) => {
     if (!confirm('Are you sure you want to delete this image?')) return;
@@ -179,63 +168,76 @@ export default function GalleryPage() {
         onShowRegister={() => router.push('/?showRegister=true')}
       />
 
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
-            My Generated Images
-          </h1>
-
-          {/* Search and Filters */}
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row">
-            <div className="relative flex-1">
+        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Gallery</h1>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
-              <input
+              <Input
                 type="text"
                 placeholder="Search images by prompt..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                className="pl-10"
               />
             </div>
-
-            <div className="flex gap-2">
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as FilterOption)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="all">All Images</option>
-                <option value="favorites">Favorites</option>
-                {AVAILABLE_PROVIDERS.map((provider) => (
-                  <option key={provider} value={provider}>
-                    {PROVIDER_INFO[provider].displayName}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 ${
-                    viewMode === 'grid'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                  }`}
+            <div className="relative w-full sm:w-64">
+              <Select>
+                <SelectTrigger
+                  onClick={() => setSelectOpen((open) => !open)}
+                  aria-haspopup="listbox"
+                  aria-expanded={selectOpen}
                 >
-                  <Grid className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 ${
-                    viewMode === 'list'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <List className="h-4 w-4" />
-                </button>
-              </div>
+                  {(() => {
+                    if (filter === 'all') return 'All Images';
+                    if (filter === 'favorites') return 'Favorites';
+                    return PROVIDER_INFO[filter]?.displayName || filter;
+                  })()}
+                </SelectTrigger>
+                {selectOpen && (
+                  <SelectContent>
+                    <SelectItem
+                      onSelect={() => {
+                        setFilter('all');
+                        setSelectOpen(false);
+                      }}
+                      selected={filter === 'all'}
+                    >
+                      All Images
+                    </SelectItem>
+                    <SelectItem
+                      onSelect={() => {
+                        setFilter('favorites');
+                        setSelectOpen(false);
+                      }}
+                      selected={filter === 'favorites'}
+                    >
+                      Favorites
+                    </SelectItem>
+                    {AVAILABLE_PROVIDERS.map((provider) => (
+                      <SelectItem
+                        key={provider}
+                        onSelect={() => {
+                          setFilter(provider as FilterOption);
+                          setSelectOpen(false);
+                        }}
+                        selected={filter === provider}
+                      >
+                        {PROVIDER_INFO[provider].displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                )}
+              </Select>
+              {selectOpen && (
+                <div
+                  className="fixed inset-0 z-0"
+                  onClick={() => setSelectOpen(false)}
+                  aria-hidden="true"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -266,49 +268,22 @@ export default function GalleryPage() {
         ) : (
           <>
             {/* Images Grid/List */}
-            <div
-              className={`mb-8 ${
-                viewMode === 'grid'
-                  ? 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                  : 'space-y-4'
-              }`}
-            >
+            <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredImages.map((image) => (
-                <div
-                  key={image.id}
-                  className={`overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800 ${
-                    viewMode === 'list' ? 'flex' : ''
-                  }`}
-                >
-                  <div
-                    className={`relative ${
-                      viewMode === 'list' ? 'h-32 w-48 flex-shrink-0' : 'aspect-square'
-                    }`}
-                  >
-                    <Image
-                      src={getImageDisplayUrl(image)}
-                      alt={image.prompt}
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute top-2 right-2 flex gap-1">
-                      <button
-                        onClick={() => toggleFavorite(image.id, image.isFavorite)}
-                        className={`rounded-full p-1.5 backdrop-blur-sm ${
-                          image.isFavorite
-                            ? 'bg-red-500 text-white'
-                            : 'bg-black/20 text-white hover:bg-black/40'
-                        }`}
-                      >
-                        <Heart
-                          className="h-3 w-3"
-                          fill={image.isFavorite ? 'currentColor' : 'none'}
+                <Card key={image.id}>
+                  <CardHeader className="relative aspect-square p-0">
+                    <Tooltip content={image.prompt} side="top">
+                      <Zoom>
+                        <Image
+                          src={getImageDisplayUrl(image)}
+                          alt={image.prompt}
+                          fill={true}
+                          className="cursor-zoom-in object-cover"
                         />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={`p-4 ${viewMode === 'list' ? 'flex-1' : ''}`}>
+                      </Zoom>
+                    </Tooltip>
+                  </CardHeader>
+                  <CardContent>
                     <p className="mb-2 line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">
                       {image.prompt}
                     </p>
@@ -316,23 +291,30 @@ export default function GalleryPage() {
                       <span>{image.provider}</span>
                       <span>{new Date(image.createdAt).toLocaleDateString()}</span>
                     </div>
+                  </CardContent>
+                  <CardFooter>
                     <div className="flex gap-2">
-                      <button
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex flex-1 items-center gap-1"
                         onClick={() => downloadImage(getImageDisplayUrl(image), image.prompt)}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-md bg-blue-500 px-2 py-1.5 text-xs text-white hover:bg-blue-600"
                       >
                         <Download className="h-3 w-3" />
                         Download
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         onClick={() => deleteImage(image.id)}
-                        className="rounded-md bg-red-500 px-2 py-1.5 text-xs text-white hover:bg-red-600"
+                        className="flex items-center gap-1"
                       >
                         <Trash2 className="h-3 w-3" />
-                      </button>
+                        Delete
+                      </Button>
                     </div>
-                  </div>
-                </div>
+                  </CardFooter>
+                </Card>
               ))}
             </div>
 
