@@ -26,7 +26,9 @@ export interface OpenAIGenerateParams {
     | '1024x1792'
     | '1024x1536'
     | '1536x1024';
-  quality?: 'standard' | 'hd' | 'low' | 'medium' | 'high';
+  quality?: 'auto' | 'standard' | 'hd' | 'low' | 'medium' | 'high';
+  moderation?: 'auto' | 'low' | null;
+  style?: 'vivid' | 'natural' | null;
   n?: number;
 }
 
@@ -53,7 +55,9 @@ export async function generateWithOpenAI(
     prompt,
     model = 'dall-e-2', // Default to DALL-E 2 for better compatibility
     size = '1024x1024',
-    quality = 'standard',
+    quality = 'auto',
+    moderation = 'auto',
+    style = 'vivid',
     n = 1,
   } = params;
 
@@ -75,11 +79,9 @@ export async function generateWithOpenAI(
     // Map quality for GPT-Image-1
     let gptImageQuality = quality;
     if (model === 'gpt-image-1') {
-      // GPT-Image-1 uses low/medium/high instead of standard/hd
-      if (quality === 'standard') {
-        gptImageQuality = 'low';
-      } else if (quality === 'hd') {
-        gptImageQuality = 'high';
+      // gpt-image-1 supports 'auto', 'low', 'medium', 'high'
+      if (!['auto', 'low', 'medium', 'high'].includes(String(quality))) {
+        gptImageQuality = 'auto';
       }
     }
 
@@ -113,11 +115,12 @@ export async function generateWithOpenAI(
             | '1024x1792'
             | '1024x1536'
             | '1536x1024';
-          quality?: 'low' | 'medium' | 'high';
+          quality?: 'auto' | 'low' | 'medium' | 'high';
+          moderation?: 'auto' | 'low' | null;
           n?: number;
         }
       | {
-          model: 'dall-e-2' | 'dall-e-3';
+          model: 'dall-e-3';
           prompt: string;
           size:
             | '256x256'
@@ -128,7 +131,23 @@ export async function generateWithOpenAI(
             | '1024x1536'
             | '1536x1024';
           response_format: 'b64_json';
-          quality?: 'standard' | 'hd';
+          quality?: 'auto' | 'standard' | 'hd';
+          style?: 'vivid' | 'natural' | null;
+          n?: number;
+        }
+      | {
+          model: 'dall-e-2';
+          prompt: string;
+          size:
+            | '256x256'
+            | '512x512'
+            | '1024x1024'
+            | '1792x1024'
+            | '1024x1792'
+            | '1024x1536'
+            | '1536x1024';
+          response_format: 'b64_json';
+          quality?: 'auto' | 'standard';
           n?: number;
         };
 
@@ -140,7 +159,8 @@ export async function generateWithOpenAI(
       requestParams = {
         ...baseParams,
         model: 'gpt-image-1',
-        quality: gptImageQuality as 'low' | 'medium' | 'high',
+        quality: gptImageQuality as 'auto' | 'low' | 'medium' | 'high',
+        moderation: moderation ?? undefined,
         n: Math.min(n, 10), // GPT Image 1 supports up to 10 images
       };
     } else if (model === 'dall-e-3') {
@@ -149,7 +169,8 @@ export async function generateWithOpenAI(
         ...baseParams,
         model: 'dall-e-3',
         response_format: 'b64_json', // Request base64 data instead of URLs
-        quality: quality as 'standard' | 'hd',
+        quality: quality as 'auto' | 'standard' | 'hd',
+        style: style ?? undefined,
         n: 1, // DALL-E 3 only supports n=1
       };
     } else {
@@ -158,6 +179,7 @@ export async function generateWithOpenAI(
         ...baseParams,
         model: 'dall-e-2',
         response_format: 'b64_json', // Request base64 data instead of URLs
+        quality: quality as 'auto' | 'standard',
         n: Math.min(n, 10), // DALL-E 2 supports up to 10 images
       };
     }

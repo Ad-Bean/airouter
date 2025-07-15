@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter, Geist_Mono } from 'next/font/google';
 import AuthProvider from '@/components/AuthProvider';
+import '@radix-ui/themes/styles.css';
 import './globals.css';
+import { Theme } from '@radix-ui/themes';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -27,7 +29,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <Theme>
+          <AuthProvider>{children}</AuthProvider>
+        </Theme>
       </body>
     </html>
   );

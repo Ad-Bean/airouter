@@ -6,7 +6,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/select';
 import Image from 'next/image';
 import Zoom from 'react-medium-image-zoom';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
@@ -15,6 +14,8 @@ import 'react-medium-image-zoom/dist/styles.css';
 import { Download, Trash2, Heart, Search, ImageIcon } from 'lucide-react';
 import { GeneratedImage } from '@/types/dashboard';
 import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from '@/config/providers';
+import { Skeleton } from '@/components/ui/skeleton';
+import * as Select from '@radix-ui/react-select';
 
 function getImageDisplayUrl(image: GeneratedImage): string {
   return `/api/images/${image.id}`;
@@ -30,8 +31,6 @@ interface PaginationInfo {
 type FilterOption = 'all' | 'favorites' | (typeof AVAILABLE_PROVIDERS)[number];
 
 export default function GalleryPage() {
-  const [selectOpen, setSelectOpen] = useState(false);
-  // Use isFavorite from image data, no need for local favoriteIds
   const { data: session, status } = useSession();
   const router = useRouter();
   const [images, setImages] = useState<GeneratedImage[]>([]);
@@ -178,64 +177,45 @@ export default function GalleryPage() {
                 placeholder="Search images by prompt..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 text-gray-900 dark:text-white"
               />
             </div>
-            <div className="relative w-full sm:w-64">
-              <Select>
-                <SelectTrigger
-                  onClick={() => setSelectOpen((open) => !open)}
-                  aria-haspopup="listbox"
-                  aria-expanded={selectOpen}
-                >
-                  {(() => {
-                    if (filter === 'all') return 'All Images';
-                    if (filter === 'favorites') return 'Favorites';
-                    return PROVIDER_INFO[filter]?.displayName || filter;
-                  })()}
-                </SelectTrigger>
-                {selectOpen && (
-                  <SelectContent>
-                    <SelectItem
-                      onSelect={() => {
-                        setFilter('all');
-                        setSelectOpen(false);
-                      }}
-                      selected={filter === 'all'}
+            <div className="flex">
+              <Select.Root value={filter} onValueChange={(val) => setFilter(val as FilterOption)}>
+                <Select.Trigger className="inline-flex w-48 items-center justify-between rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                  <Select.Value>
+                    {filter === 'all'
+                      ? 'All Images'
+                      : filter === 'favorites'
+                        ? 'Favorites'
+                        : PROVIDER_INFO[filter]?.displayName || filter}
+                  </Select.Value>
+                  <Select.Icon />
+                </Select.Trigger>
+                <Select.Content className="z-50 w-48 rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  <Select.Item
+                    value="all"
+                    className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                  >
+                    All Images
+                  </Select.Item>
+                  <Select.Item
+                    value="favorites"
+                    className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                  >
+                    Favorites
+                  </Select.Item>
+                  {AVAILABLE_PROVIDERS.map((provider) => (
+                    <Select.Item
+                      value={provider}
+                      key={provider}
+                      className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
                     >
-                      All Images
-                    </SelectItem>
-                    <SelectItem
-                      onSelect={() => {
-                        setFilter('favorites');
-                        setSelectOpen(false);
-                      }}
-                      selected={filter === 'favorites'}
-                    >
-                      Favorites
-                    </SelectItem>
-                    {AVAILABLE_PROVIDERS.map((provider) => (
-                      <SelectItem
-                        key={provider}
-                        onSelect={() => {
-                          setFilter(provider as FilterOption);
-                          setSelectOpen(false);
-                        }}
-                        selected={filter === provider}
-                      >
-                        {PROVIDER_INFO[provider].displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                )}
-              </Select>
-              {selectOpen && (
-                <div
-                  className="fixed inset-0 z-0"
-                  onClick={() => setSelectOpen(false)}
-                  aria-hidden="true"
-                />
-              )}
+                      {PROVIDER_INFO[provider].displayName}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
             </div>
           </div>
         </div>
@@ -243,25 +223,15 @@ export default function GalleryPage() {
         {/* Content */}
         <div className="relative">
           {loading && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 dark:bg-gray-900/70">
-              <svg className="h-8 w-8 animate-spin text-blue-500" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
+            <div className="flex flex-col space-y-3">
+              <Skeleton className="mx-auto h-[125px] w-[250px] rounded-xl" />
+              <div className="mx-auto space-y-2">
+                <Skeleton className="h-4 w-[250px]" />
+                <Skeleton className="h-4 w-[200px]" />
+              </div>
             </div>
           )}
+
           {!loading && filteredImages.length === 0 ? (
             <div className="rounded-lg bg-white p-8 text-center shadow dark:bg-gray-800">
               <ImageIcon className="mx-auto mb-6 h-20 w-20 text-gray-400" />
@@ -282,7 +252,6 @@ export default function GalleryPage() {
             </div>
           ) : (
             <>
-              {/* Images Grid/List */}
               <div className="mb-8 grid grid-cols-1 gap-6 bg-gray-50 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 dark:bg-gray-900">
                 {filteredImages.map((image) => (
                   <Card
