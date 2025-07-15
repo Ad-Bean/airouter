@@ -28,7 +28,7 @@ const iconMap = {
 
 export default function ModelsPage() {
   // All logic and hooks inside function body
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const router = useRouter();
   const [isDark, setIsDark] = useState(false);
   const [activeTab, setActiveTab] = useState<'models' | 'pricing'>('models');
@@ -42,6 +42,16 @@ export default function ModelsPage() {
     const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
     setIsDark(shouldUseDark);
     document.documentElement.classList.toggle('dark', shouldUseDark);
+
+    if (window.location.hash === '#pricing') {
+      setActiveTab('pricing');
+      setTimeout(() => {
+        const el = document.getElementById('pricing');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
   }, []);
 
   const toggleTheme = () => {
@@ -68,14 +78,6 @@ export default function ModelsPage() {
   const formatCost = (costInCents: number) => {
     return `$${(costInCents / 100).toFixed(3)}`;
   };
-
-  if (status === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
-      </div>
-    );
-  }
 
   const handleStartCreating = () => {
     if (!session) {
@@ -210,18 +212,6 @@ export default function ModelsPage() {
                           </div>
                         ))}
                       </div>
-
-                      {/* Status */}
-                      <div className="mt-6 flex items-center gap-2">
-                        <div
-                          className={`h-3 w-3 rounded-full ${
-                            provider.enabled ? 'bg-green-500' : 'bg-red-500'
-                          }`}
-                        />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {provider.enabled ? 'Available' : 'Not configured'}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 );
@@ -315,7 +305,7 @@ export default function ModelsPage() {
 
         {/* Pricing Tab */}
         {activeTab === 'pricing' && (
-          <div className="space-y-12">
+          <div id="pricing" className="space-y-12">
             {/* Credit Packages */}
             <div>
               <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 dark:text-white">
@@ -333,7 +323,7 @@ export default function ModelsPage() {
                   >
                     {pkg.popular && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 transform">
-                        <div className="flex items-center gap-1 rounded-full bg-blue-500 px-4 py-1 text-sm font-medium text-white">
+                        <div className="flex items-center gap-1 rounded-full bg-blue-500 px-2 py-1 text-xs font-medium whitespace-nowrap text-white sm:px-4 sm:text-sm">
                           <Star className="h-4 w-4" />
                           Most Popular
                         </div>
@@ -363,11 +353,11 @@ export default function ModelsPage() {
                       </div>
 
                       <div className="mb-6 text-xs text-gray-500 dark:text-gray-400">
-                        {formatCost((pkg.price / (pkg.credits + pkg.bonus)) * 100)} per credit
+                        {formatCost(pkg.price / (pkg.credits + pkg.bonus))} per credit
                       </div>
 
                       <button
-                        onClick={() => router.push('/billing')}
+                        onClick={handleBuyCredits}
                         className={`w-full rounded-lg px-4 py-3 font-medium transition-all ${
                           pkg.popular
                             ? 'bg-blue-600 text-white hover:bg-blue-700'

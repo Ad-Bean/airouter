@@ -55,7 +55,7 @@ export function Navigation({
             Models
           </Link>
           <Link
-            href="/models"
+            href="/models#pricing"
             className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
           >
             Pricing

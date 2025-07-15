@@ -32,7 +32,7 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
     iconName: 'Wand2',
     color: 'from-pink-500 to-rose-600',
     badgeColor: 'bg-blue-500',
-    enabled: !!process.env.OPENAI_API_KEY,
+    enabled: true,
     models: [
       {
         id: 'dall-e-3',
@@ -71,10 +71,7 @@ export const PROVIDER_CONFIGS: Record<Provider, ProviderConfig> = {
     iconName: 'ImageIcon',
     color: 'from-red-500 to-orange-600',
     badgeColor: 'bg-red-500',
-    enabled:
-      !!process.env.GOOGLE_CLOUD_PROJECT &&
-      !!process.env.GOOGLE_CLOUD_LOCATION &&
-      !!process.env.GEMINI_API_KEY,
+    enabled: true,
     models: [
       // Gemini Models (for editing)
       {
