@@ -328,10 +328,16 @@ export default function BillingPage() {
                   >
                     <div className="flex items-center space-x-4">
                       {getTransactionIcon(transaction.type)}
+
                       <div>
                         <div className="font-medium text-gray-900 dark:text-white">
                           {transaction.description}
                         </div>
+                        {String(transaction.metadata?.model) !== 'undefined' && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            <div>{String(transaction.metadata?.model)}</div>
+                          </div>
+                        )}
                         <div className="text-sm text-gray-600 dark:text-gray-400">
                           {formatDate(transaction.createdAt)}
                         </div>

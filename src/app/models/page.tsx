@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Navigation } from '@/components/Navigation';
+import { AuthModal } from '@/components/AuthModal';
 import { PROVIDER_CONFIGS } from '@/config/providers';
 import { CREDIT_PACKAGES, GENERATION_COSTS } from '@/config/credits';
 import {
@@ -26,16 +27,19 @@ const iconMap = {
 } as const;
 
 export default function ModelsPage() {
-  const { status } = useSession();
+  // All logic and hooks inside function body
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [isDark, setIsDark] = useState(false);
   const [activeTab, setActiveTab] = useState<'models' | 'pricing'>('models');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [pendingRedirect, setPendingRedirect] = useState<'chat' | 'billing' | null>(null);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-
     setIsDark(shouldUseDark);
     document.documentElement.classList.toggle('dark', shouldUseDark);
   }, []);
@@ -48,11 +52,13 @@ export default function ModelsPage() {
   };
 
   const handleShowLogin = () => {
-    router.push('/?showLogin=true');
+    setAuthModalTab('login');
+    setShowAuthModal(true);
   };
 
   const handleShowRegister = () => {
-    router.push('/?showRegister=true');
+    setAuthModalTab('register');
+    setShowAuthModal(true);
   };
 
   const formatPrice = (priceInCents: number) => {
@@ -70,6 +76,26 @@ export default function ModelsPage() {
       </div>
     );
   }
+
+  const handleStartCreating = () => {
+    if (!session) {
+      setAuthModalTab('login');
+      setPendingRedirect('chat');
+      setShowAuthModal(true);
+      return;
+    }
+    router.push('/chat');
+  };
+
+  const handleBuyCredits = () => {
+    if (!session) {
+      setAuthModalTab('login');
+      setPendingRedirect('billing');
+      setShowAuthModal(true);
+      return;
+    }
+    router.push('/billing');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 transition-colors duration-300 dark:bg-gray-900">
@@ -518,7 +544,7 @@ export default function ModelsPage() {
         {/* Documentation Links */}
         <div className="mt-16 rounded-xl border border-gray-200 bg-white p-8 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
-            Learn More About Our AI Models
+            Learn More About AI Models
           </h2>
           <div className="grid gap-6 md:grid-cols-2">
             <a
@@ -566,14 +592,14 @@ export default function ModelsPage() {
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <button
-                onClick={() => router.push('/chat')}
+                onClick={handleStartCreating}
                 className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-blue-600 transition-colors hover:bg-gray-100"
               >
                 <Wand2 className="h-4 w-4" />
                 Start Creating
               </button>
               <button
-                onClick={() => router.push('/billing')}
+                onClick={handleBuyCredits}
                 className="inline-flex items-center gap-2 rounded-lg bg-white/20 px-6 py-3 font-semibold text-white transition-colors hover:bg-white/30"
               >
                 <Crown className="h-4 w-4" />
@@ -582,6 +608,20 @@ export default function ModelsPage() {
             </div>
           </div>
         </div>
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingRedirect === 'chat') {
+              router.push('/chat');
+            } else if (pendingRedirect === 'billing') {
+              router.push('/billing');
+            }
+            setPendingRedirect(null);
+          }}
+          defaultTab={authModalTab}
+        />
       </div>
     </div>
   );
