@@ -12,12 +12,10 @@ import Zoom from 'react-medium-image-zoom';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Tooltip } from '@/components/ui/tooltip';
 import 'react-medium-image-zoom/dist/styles.css';
-import { Download, Trash2, Search, ImageIcon } from 'lucide-react';
+import { Download, Trash2, Heart, Search, ImageIcon } from 'lucide-react';
 import { GeneratedImage } from '@/types/dashboard';
 import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from '@/config/providers';
 
-// Helper function to get the display URL for an image
-// Always use the API endpoint to ensure proper access control and S3 proxying
 function getImageDisplayUrl(image: GeneratedImage): string {
   return `/api/images/${image.id}`;
 }
@@ -33,6 +31,7 @@ type FilterOption = 'all' | 'favorites' | (typeof AVAILABLE_PROVIDERS)[number];
 
 export default function GalleryPage() {
   const [selectOpen, setSelectOpen] = useState(false);
+  // Use isFavorite from image data, no need for local favoriteIds
   const { data: session, status } = useSession();
   const router = useRouter();
   const [images, setImages] = useState<GeneratedImage[]>([]);
@@ -43,7 +42,6 @@ export default function GalleryPage() {
     total: 0,
     pages: 0,
   });
-  // Only grid view supported
   const [filter, setFilter] = useState<FilterOption>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDark, setIsDark] = useState(false);
@@ -243,122 +241,174 @@ export default function GalleryPage() {
         </div>
 
         {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-lg text-gray-600 dark:text-gray-400">Loading images...</div>
-          </div>
-        ) : filteredImages.length === 0 ? (
-          <div className="rounded-lg bg-white p-8 text-center shadow dark:bg-gray-800">
-            <ImageIcon className="mx-auto mb-6 h-20 w-20 text-gray-400" />
-            <p className="mb-2 text-lg text-gray-500 dark:text-gray-400">
-              {images.length === 0 ? 'No images generated yet' : 'No images match your search'}
-            </p>
-            <p className="mb-6 text-gray-400 dark:text-gray-500">
-              {images.length === 0
-                ? 'Start creating amazing images with AI!'
-                : 'Try adjusting your search or filters'}
-            </p>
-            <button
-              onClick={() => router.push('/chat')}
-              className="rounded-lg bg-blue-600 px-6 py-3 font-bold text-white hover:bg-blue-700"
-            >
-              Generate Your First Image
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Images Grid/List */}
-            <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredImages.map((image) => (
-                <Card key={image.id}>
-                  <CardHeader className="relative aspect-square p-0">
-                    <Tooltip content={image.prompt} side="top">
-                      <Zoom>
-                        <Image
-                          src={getImageDisplayUrl(image)}
-                          alt={image.prompt}
-                          fill={true}
-                          className="cursor-zoom-in object-cover"
-                        />
-                      </Zoom>
-                    </Tooltip>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="mb-2 line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">
-                      {image.prompt}
-                    </p>
-                    <div className="mb-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                      <span>{image.provider}</span>
-                      <span>{new Date(image.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex flex-1 items-center gap-1"
-                        onClick={() => downloadImage(getImageDisplayUrl(image), image.prompt)}
-                      >
-                        <Download className="h-3 w-3" />
-                        Download
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteImage(image.id)}
-                        className="flex items-center gap-1"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Delete
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 dark:bg-gray-900/70">
+              <svg className="h-8 w-8 animate-spin text-blue-500" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
             </div>
-
-            {/* Pagination */}
-            {pagination.pages > 1 && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                  {pagination.total} results
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      setPagination((prev) => ({
-                        ...prev,
-                        page: prev.page - 1,
-                      }))
-                    }
-                    disabled={pagination.page === 1}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
+          )}
+          {!loading && filteredImages.length === 0 ? (
+            <div className="rounded-lg bg-white p-8 text-center shadow dark:bg-gray-800">
+              <ImageIcon className="mx-auto mb-6 h-20 w-20 text-gray-400" />
+              <p className="mb-2 text-lg text-gray-500 dark:text-gray-400">
+                {images.length === 0 ? 'No images generated yet' : 'No images match your search'}
+              </p>
+              <p className="mb-6 text-gray-400 dark:text-gray-500">
+                {images.length === 0
+                  ? 'Start creating amazing images with AI!'
+                  : 'Try adjusting your search or filters'}
+              </p>
+              <button
+                onClick={() => router.push('/chat')}
+                className="rounded-lg bg-blue-600 px-6 py-3 font-bold text-white hover:bg-blue-700"
+              >
+                Generate Your First Image
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Images Grid/List */}
+              <div className="mb-8 grid grid-cols-1 gap-6 bg-gray-50 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 dark:bg-gray-900">
+                {filteredImages.map((image) => (
+                  <Card
+                    key={image.id}
+                    className="bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:bg-gray-800"
                   >
-                    Previous
-                  </button>
-                  <span className="rounded-md bg-blue-500 px-3 py-1 text-sm text-white">
-                    {pagination.page}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setPagination((prev) => ({
-                        ...prev,
-                        page: prev.page + 1,
-                      }))
-                    }
-                    disabled={pagination.page === pagination.pages}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
-                  >
-                    Next
-                  </button>
-                </div>
+                    <CardHeader className="relative aspect-square bg-gray-100 p-0 dark:bg-gray-900">
+                      <Tooltip content={image.prompt} side="top">
+                        <Zoom>
+                          <Image
+                            src={getImageDisplayUrl(image)}
+                            alt={image.prompt}
+                            fill={true}
+                            className="cursor-zoom-in object-cover"
+                          />
+                        </Zoom>
+                      </Tooltip>
+                      <Button
+                        variant={image.isFavorite ? 'default' : 'ghost'}
+                        size="icon"
+                        aria-label={image.isFavorite ? 'Unfavorite' : 'Favorite'}
+                        className={
+                          'absolute top-2 right-2 z-10 rounded-full shadow-md ' +
+                          (image.isFavorite
+                            ? 'bg-white text-red-500 dark:bg-gray-900'
+                            : 'bg-white/80 text-gray-400 hover:text-red-500 dark:bg-gray-900/80')
+                        }
+                        onClick={async () => {
+                          try {
+                            await fetch(`/api/images/${image.id}/favorite`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ isFavorite: !image.isFavorite }),
+                            });
+                            // Refetch images to update UI
+                            fetchImages();
+                          } catch (err) {
+                            console.error('Failed to update favorite:', err);
+                          }
+                        }}
+                      >
+                        <Heart
+                          fill={image.isFavorite ? 'currentColor' : 'none'}
+                          className="h-5 w-5"
+                        />
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="bg-white dark:bg-gray-800">
+                      <p className="mb-2 line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">
+                        {image.prompt}
+                      </p>
+                      <div className="mb-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>{image.provider}</span>
+                        <span>{new Date(image.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex flex-1 cursor-pointer items-center gap-1"
+                          onClick={() => downloadImage(getImageDisplayUrl(image), image.prompt)}
+                          aria-label="Download image"
+                        >
+                          <Download className="h-3 w-3" />
+                          Download
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteImage(image.id)}
+                          className="flex cursor-pointer items-center gap-1"
+                          aria-label="Delete image"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
-            )}
-          </>
-        )}
+
+              {/* Pagination */}
+              {pagination.pages > 1 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+                    {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                    {pagination.total} results
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        setPagination((prev) => ({
+                          ...prev,
+                          page: prev.page - 1,
+                        }))
+                      }
+                      disabled={pagination.page === 1}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    >
+                      Previous
+                    </button>
+                    <span className="rounded-md bg-blue-500 px-3 py-1 text-sm text-white">
+                      {pagination.page}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setPagination((prev) => ({
+                          ...prev,
+                          page: prev.page + 1,
+                        }))
+                      }
+                      disabled={pagination.page === pagination.pages}
+                      className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
