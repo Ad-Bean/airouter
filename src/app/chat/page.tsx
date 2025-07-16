@@ -47,6 +47,20 @@ function ChatPageContent() {
   const [selectedProviders, setSelectedProviders] = useState<Provider[]>(DEFAULT_PROVIDERS);
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>(DEFAULT_MODELS);
   const [imageCount, setImageCount] = useState<Record<string, number>>({});
+  const [modelOptions, setModelOptions] = useState<
+    Record<
+      string,
+      {
+        quality?: string;
+        moderation?: string;
+        style?: string;
+        safetySetting?: string;
+        personGeneration?: string;
+        addWatermark?: boolean;
+        enhancePrompt?: boolean;
+      }
+    >
+  >({});
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -152,6 +166,7 @@ function ChatPageContent() {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []); // Load session messages
+
   const loadChatSession = useCallback(async (sessionId: string) => {
     setIsLoadingSession(true);
     try {
@@ -408,6 +423,24 @@ function ChatPageContent() {
     }));
   };
 
+  const handleModelOptionsChange = (
+    provider: string,
+    options: {
+      quality?: string;
+      moderation?: string;
+      style?: string;
+      safetySetting?: string;
+      personGeneration?: string;
+      addWatermark?: boolean;
+      enhancePrompt?: boolean;
+    },
+  ) => {
+    setModelOptions((prev) => ({
+      ...prev,
+      [provider]: { ...prev[provider], ...options },
+    }));
+  };
+
   const handleRetry = useCallback((prompt: string, providers?: Provider[]) => {
     setInput(prompt);
     if (providers) {
@@ -496,6 +529,7 @@ function ChatPageContent() {
               providers: providers || selectedProviders,
               models: selectedModels,
               imageCount,
+              modelOptions,
               messageId: assistantMessage.id,
             }),
           }),
@@ -543,6 +577,7 @@ function ChatPageContent() {
       selectedProviders,
       selectedModels,
       imageCount,
+      modelOptions,
       scrollToBottom,
     ],
   );
@@ -1518,6 +1553,8 @@ function ChatPageContent() {
           imageCount={imageCount}
           onModelChange={handleModelChange}
           onImageCountChange={handleImageCountChange}
+          modelOptions={modelOptions}
+          onModelOptionsChange={handleModelOptionsChange}
         />
       </div>
     </div>

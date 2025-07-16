@@ -93,6 +93,7 @@ export function ChatSidebar({
     // Update URL without triggering navigation for smoother experience
     const newUrl = '/chat';
     window.history.replaceState({ ...window.history.state, url: newUrl }, '', newUrl);
+    fetchSessions(); // Refresh sessions after creating new chat
   };
 
   const handleSessionClick = (sessionId: string) => {

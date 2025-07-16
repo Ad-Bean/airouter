@@ -183,7 +183,6 @@ export async function generateWithOpenAI(
         n: Math.min(n, 10), // DALL-E 2 supports up to 10 images
       };
     }
-
     const response = await openai.images.generate(requestParams);
 
     // Handle different response formats based on model

@@ -6,6 +6,7 @@ import {
   calculateGeminiTotalCost,
   EDITING_COST_MULTIPLIER,
   MINIMUM_EDITING_COST,
+  MINIMUM_GENERATION_COST,
 } from '@/config/credits';
 
 export interface DeductCreditsParams {
@@ -98,6 +99,8 @@ export async function deductCredits({
       if (isEditing) {
         cost = cost * EDITING_COST_MULTIPLIER;
         cost = Math.max(cost, MINIMUM_EDITING_COST); // Ensure minimum editing cost
+      } else {
+        cost = Math.max(cost, MINIMUM_GENERATION_COST); // Ensure minimum generation cost
       }
     } else if (
       provider === 'google' &&
@@ -121,22 +124,12 @@ export async function deductCredits({
       );
       cost = Math.max(cost, minCost);
 
-      console.log(`Google Gemini cost calculation:`, {
-        provider,
-        model,
-        isEditing,
-        usage: validUsage,
-        calculatedCost: cost,
-        minCost,
-        finalCost: isEditing
-          ? Math.max(cost * EDITING_COST_MULTIPLIER, MINIMUM_EDITING_COST)
-          : cost,
-      });
-
       // Apply editing multiplier if this is for editing
       if (isEditing) {
         cost = cost * EDITING_COST_MULTIPLIER;
         cost = Math.max(cost, MINIMUM_EDITING_COST); // Ensure minimum editing cost
+      } else {
+        cost = Math.max(cost, MINIMUM_GENERATION_COST); // Ensure minimum generation cost
       }
     } else if (provider === 'google' && model === 'gemini-2.0-flash-preview-image-generation') {
       // Handle Google Gemini without usage data - use base cost
@@ -156,6 +149,8 @@ export async function deductCredits({
       if (isEditing) {
         cost = cost * EDITING_COST_MULTIPLIER;
         cost = Math.max(cost, MINIMUM_EDITING_COST); // Ensure minimum editing cost
+      } else {
+        cost = Math.max(cost, MINIMUM_GENERATION_COST); // Ensure minimum generation cost
       }
     } else {
       // Use regular calculation
@@ -175,6 +170,8 @@ export async function deductCredits({
         );
       }
     }
+
+    cost = Math.max(cost, MINIMUM_GENERATION_COST); // Ensure minimum generation cost
 
     // Get user's current credits
     const user = await prisma.user.findUnique({

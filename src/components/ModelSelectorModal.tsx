@@ -6,6 +6,16 @@ import { PROVIDER_CONFIGS, getProviderModels } from '@/config/providers';
 import { useState } from 'react';
 import * as RadixSelect from '@radix-ui/react-select';
 
+interface ModelOptions {
+  quality?: string;
+  moderation?: string;
+  style?: string;
+  safetySetting?: string;
+  personGeneration?: string;
+  addWatermark?: boolean;
+  enhancePrompt?: boolean;
+}
+
 interface ModelSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,11 +24,8 @@ interface ModelSelectorModalProps {
   imageCount: Record<string, number>;
   onModelChange: (provider: string, model: string) => void;
   onImageCountChange: (provider: string, count: number) => void;
-  modelOptions?: Record<string, { quality?: string; moderation?: string; style?: string }>;
-  onModelOptionsChange?: (
-    provider: string,
-    options: { quality?: string; moderation?: string; style?: string },
-  ) => void;
+  modelOptions?: Record<string, ModelOptions>;
+  onModelOptionsChange?: (provider: string, options: ModelOptions) => void;
 }
 
 export function ModelSelectorModal({
@@ -33,17 +40,12 @@ export function ModelSelectorModal({
   onModelOptionsChange,
 }: ModelSelectorModalProps) {
   // Local state for model options if not controlled
-  const [localModelOptions, setLocalModelOptions] = useState<
-    Record<string, { quality?: string; moderation?: string; style?: string }>
-  >({});
+  const [localModelOptions, setLocalModelOptions] = useState<Record<string, ModelOptions>>({});
 
   const getOptions = (provider: string) =>
     modelOptions[provider] || localModelOptions[provider] || {};
 
-  const setOptions = (
-    provider: string,
-    opts: { quality?: string; moderation?: string; style?: string },
-  ) => {
+  const setOptions = (provider: string, opts: ModelOptions) => {
     if (onModelOptionsChange) {
       onModelOptionsChange(provider, opts);
     } else {
@@ -310,6 +312,179 @@ export function ModelSelectorModal({
                                 </RadixSelect.Root>
                               </div>
                             )}
+                            {/* Google Model Options */}
+                            {provider === 'google' && (
+                              <>
+                                {/* Safety Setting */}
+                                <div>
+                                  <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    Safety Setting
+                                  </label>
+                                  <RadixSelect.Root
+                                    value={options.safetySetting || 'block_medium_and_above'}
+                                    onValueChange={(val) =>
+                                      setOptions(provider, { ...options, safetySetting: val })
+                                    }
+                                  >
+                                    <RadixSelect.Trigger className="inline-flex w-48 items-center justify-between rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                      <RadixSelect.Value>
+                                        {options.safetySetting === 'block_low_and_above'
+                                          ? 'Block Low+'
+                                          : options.safetySetting === 'block_medium_and_above'
+                                            ? 'Block Medium+'
+                                            : options.safetySetting === 'block_only_high'
+                                              ? 'Block Only High'
+                                              : options.safetySetting === 'block_none'
+                                                ? 'Block None'
+                                                : 'Block Medium+'}
+                                      </RadixSelect.Value>
+                                      <RadixSelect.Icon />
+                                    </RadixSelect.Trigger>
+                                    <RadixSelect.Content
+                                      position="popper"
+                                      className="z-50 rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                                    >
+                                      <RadixSelect.Item
+                                        value="block_low_and_above"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Block Low+ (Most Strict)
+                                      </RadixSelect.Item>
+                                      <RadixSelect.Item
+                                        value="block_medium_and_above"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Block Medium+ (Default)
+                                      </RadixSelect.Item>
+                                      <RadixSelect.Item
+                                        value="block_only_high"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Block Only High
+                                      </RadixSelect.Item>
+                                    </RadixSelect.Content>
+                                  </RadixSelect.Root>
+                                </div>
+                                {/* Person Generation */}
+                                <div>
+                                  <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    Person Generation
+                                  </label>
+                                  <RadixSelect.Root
+                                    value={options.personGeneration || 'allow_adult'}
+                                    onValueChange={(val) =>
+                                      setOptions(provider, { ...options, personGeneration: val })
+                                    }
+                                  >
+                                    <RadixSelect.Trigger className="inline-flex w-32 items-center justify-between rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                      <RadixSelect.Value>
+                                        {options.personGeneration === 'allow_adult'
+                                          ? 'Allow Adult'
+                                          : options.personGeneration === 'dont_allow'
+                                            ? 'Don&apos;t Allow'
+                                            : 'Allow Adult'}
+                                      </RadixSelect.Value>
+                                      <RadixSelect.Icon />
+                                    </RadixSelect.Trigger>
+                                    <RadixSelect.Content
+                                      position="popper"
+                                      className="z-50 rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                                    >
+                                      <RadixSelect.Item
+                                        value="allow_adult"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Allow Adult
+                                      </RadixSelect.Item>
+                                      <RadixSelect.Item
+                                        value="dont_allow"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Don&apos;t Allow
+                                      </RadixSelect.Item>
+                                    </RadixSelect.Content>
+                                  </RadixSelect.Root>
+                                </div>
+                                {/* Enhance Prompt */}
+                                <div>
+                                  <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    Enhance Prompt
+                                  </label>
+                                  <RadixSelect.Root
+                                    value={options.enhancePrompt ? 'true' : 'false'}
+                                    onValueChange={(val) =>
+                                      setOptions(provider, {
+                                        ...options,
+                                        enhancePrompt: val === 'true',
+                                      })
+                                    }
+                                  >
+                                    <RadixSelect.Trigger className="inline-flex w-24 items-center justify-between rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                      <RadixSelect.Value>
+                                        {options.enhancePrompt ? 'Yes' : 'No'}
+                                      </RadixSelect.Value>
+                                      <RadixSelect.Icon />
+                                    </RadixSelect.Trigger>
+                                    <RadixSelect.Content
+                                      position="popper"
+                                      className="z-50 rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                                    >
+                                      <RadixSelect.Item
+                                        value="false"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        No
+                                      </RadixSelect.Item>
+                                      <RadixSelect.Item
+                                        value="true"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Yes
+                                      </RadixSelect.Item>
+                                    </RadixSelect.Content>
+                                  </RadixSelect.Root>
+                                </div>
+                                {/* Add Watermark */}
+                                <div>
+                                  <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    Add Watermark
+                                  </label>
+                                  <RadixSelect.Root
+                                    value={options.addWatermark !== false ? 'true' : 'false'}
+                                    onValueChange={(val) =>
+                                      setOptions(provider, {
+                                        ...options,
+                                        addWatermark: val === 'true',
+                                      })
+                                    }
+                                  >
+                                    <RadixSelect.Trigger className="inline-flex w-24 items-center justify-between rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                      <RadixSelect.Value>
+                                        {options.addWatermark !== false ? 'Yes' : 'No'}
+                                      </RadixSelect.Value>
+                                      <RadixSelect.Icon />
+                                    </RadixSelect.Trigger>
+                                    <RadixSelect.Content
+                                      position="popper"
+                                      className="z-50 rounded border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                                    >
+                                      <RadixSelect.Item
+                                        value="true"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        Yes
+                                      </RadixSelect.Item>
+                                      <RadixSelect.Item
+                                        value="false"
+                                        className="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                                      >
+                                        No
+                                      </RadixSelect.Item>
+                                    </RadixSelect.Content>
+                                  </RadixSelect.Root>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -357,8 +532,22 @@ export function ModelSelectorModal({
               <br />• <strong>DALL-E 2:</strong> Faster generation, supports multiple images
               <br />• <strong>Imagen 4.0:</strong> Google&apos;s latest with configurable sample
               count
+              <br />• <strong>Gemini 2.0:</strong> Google&apos;s model with image generation and
+              editing
               <br />• <strong>Preview models:</strong> Latest features, may have limitations
             </p>
+            <div className="mt-3">
+              <h6 className="font-medium text-blue-900 dark:text-blue-100">Model Options:</h6>
+              <p className="text-xs text-blue-600 dark:text-blue-400">
+                • <strong>Quality:</strong> Controls output quality (OpenAI models)
+                <br />• <strong>Style:</strong> Vivid or natural style (DALL-E 3)
+                <br />• <strong>Moderation:</strong> Content filtering level (GPT Image 1)
+                <br />• <strong>Safety Setting:</strong> Content filtering strictness (Google)
+                <br />• <strong>Person Generation:</strong> Allow adult person generation (Google)
+                <br />• <strong>Enhance Prompt:</strong> Automatically improve prompts (Google)
+                <br />• <strong>Add Watermark:</strong> Add Google watermark to images (Google)
+              </p>
+            </div>
           </div>
         </div>
 

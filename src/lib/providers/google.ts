@@ -6,7 +6,9 @@ export interface GoogleGenerateParams {
     | 'imagen-4-preview'
     | 'imagen-4-standard'
     | 'imagen-4-ultra'
+    | 'imagen-4-fast'
     | 'imagen-3'
+    | 'imagen-3-fast'
     | 'imagen-4.0-generate-preview-06-06'
     | 'gemini-2.0-flash-preview-image-generation';
   sampleCount?: number;
@@ -220,7 +222,9 @@ export async function generateWithGoogle(
       'imagen-4-preview': 'imagen-4.0-generate-preview-06-06',
       'imagen-4-standard': 'imagen-4.0-generate-standard-06-06',
       'imagen-4-ultra': 'imagen-4.0-generate-ultra-06-06',
+      'imagen-4-fast': 'imagen-4.0-fast-generate-preview-06-06',
       'imagen-3': 'imagen-3.0-generate-001',
+      'imagen-3-fast': 'imagen-3.0-fast-generate-001',
       'imagen-4.0-generate-preview-06-06': 'imagen-4.0-generate-preview-06-06', // Legacy support
     };
 

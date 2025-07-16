@@ -13,7 +13,13 @@ export interface GenerateImageParams {
   steps?: number;
   n?: number; // For OpenAI models
   sampleCount?: number; // For Google Vertex AI models
-  quality?: 'standard' | 'hd' | 'low' | 'medium' | 'high';
+  quality?: 'standard' | 'hd' | 'low' | 'medium' | 'high' | 'auto';
+  moderation?: 'auto' | 'low' | null;
+  style?: 'vivid' | 'natural' | null;
+  safetySetting?: string;
+  personGeneration?: string;
+  addWatermark?: boolean;
+  enhancePrompt?: boolean;
 }
 
 export interface GenerateImageResponse {
@@ -55,6 +61,12 @@ export async function generateImageDirect(
     n,
     sampleCount,
     quality = 'standard',
+    moderation,
+    style,
+    safetySetting,
+    personGeneration,
+    addWatermark,
+    enhancePrompt,
   } = params;
 
   if (!prompt) {
@@ -97,7 +109,9 @@ export async function generateImageDirect(
             | '1024x1792'
             | '1024x1536'
             | '1536x1024',
-          quality: quality as 'standard' | 'hd' | 'low' | 'medium' | 'high',
+          quality: quality as 'standard' | 'hd' | 'low' | 'medium' | 'high' | 'auto',
+          moderation: moderation as 'auto' | 'low' | null,
+          style: style as 'vivid' | 'natural' | null,
           n: n || 1,
         });
         break;
@@ -110,10 +124,17 @@ export async function generateImageDirect(
               | 'imagen-4-preview'
               | 'imagen-4-standard'
               | 'imagen-4-ultra'
+              | 'imagen-4-fast'
               | 'imagen-3'
+              | 'imagen-3-fast'
               | 'imagen-4.0-generate-preview-06-06'
+              | 'gemini-2.0-flash-preview-image-generation'
               | undefined) || 'imagen-4-preview',
           sampleCount: sampleCount || 1,
+          safetySetting: safetySetting || 'block_medium_and_above',
+          personGeneration: personGeneration || 'allow_adult',
+          addWatermark: addWatermark !== false,
+          enhancePrompt: enhancePrompt || false,
         });
         break;
 

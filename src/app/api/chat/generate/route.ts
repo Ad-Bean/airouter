@@ -123,7 +123,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { sessionId, prompt, providers, models, imageCount, messageId } = await request.json();
+    const {
+      sessionId,
+      prompt,
+      providers,
+      models,
+      imageCount,
+      modelOptions = {},
+      messageId,
+    }: {
+      sessionId: string;
+      prompt: string;
+      providers: Provider[];
+      models: Record<string, string>;
+      imageCount: Record<string, number>;
+      modelOptions: Record<
+        string,
+        {
+          quality?: 'auto' | 'standard' | 'low' | 'medium' | 'high' | 'hd';
+          moderation?: 'auto' | 'low' | null;
+          style?: 'vivid' | 'natural' | null;
+          safetySetting?: string;
+          personGeneration?: string;
+          addWatermark?: boolean;
+          enhancePrompt?: boolean;
+        }
+      >;
+      messageId: string;
+    } = await request.json();
 
     let assistantMessage;
 
@@ -227,6 +254,7 @@ export async function POST(request: NextRequest) {
       providers,
       models,
       imageCount || {},
+      modelOptions,
       session.user.id,
     );
 
@@ -257,6 +285,18 @@ async function generateImagesBackground(
   providers: Provider[],
   models: Record<string, string>,
   imageCount: Record<string, number>,
+  modelOptions: Record<
+    string,
+    {
+      quality?: 'auto' | 'standard' | 'low' | 'medium' | 'high' | 'hd';
+      moderation?: 'auto' | 'low' | null;
+      style?: 'vivid' | 'natural' | null;
+      safetySetting?: string;
+      personGeneration?: string;
+      addWatermark?: boolean;
+      enhancePrompt?: boolean;
+    }
+  >,
   userId: string,
 ) {
   try {
@@ -307,6 +347,7 @@ async function generateImagesBackground(
     const generationPromises = providers.map(async (provider) => {
       try {
         const count = imageCount[provider] || 1;
+        const currentOptions = modelOptions[provider] || {};
         const generateParams: {
           prompt: string;
           provider: Provider;
@@ -316,6 +357,13 @@ async function generateImagesBackground(
           steps: number;
           n?: number;
           sampleCount?: number;
+          quality?: 'auto' | 'standard' | 'low' | 'medium' | 'high' | 'hd';
+          moderation?: 'auto' | 'low' | null;
+          style?: 'vivid' | 'natural' | null;
+          safetySetting?: string;
+          personGeneration?: string;
+          addWatermark?: boolean;
+          enhancePrompt?: boolean;
         } = {
           prompt,
           provider,
@@ -323,6 +371,14 @@ async function generateImagesBackground(
           width: 1024,
           height: 1024,
           steps: 20,
+          // Add model-specific options with proper typing
+          quality: currentOptions.quality as 'auto' | 'standard' | 'low' | 'medium' | 'high' | 'hd',
+          moderation: currentOptions.moderation,
+          style: currentOptions.style,
+          safetySetting: currentOptions.safetySetting,
+          personGeneration: currentOptions.personGeneration,
+          addWatermark: currentOptions.addWatermark,
+          enhancePrompt: currentOptions.enhancePrompt,
         };
 
         // Add the appropriate count parameter based on provider
