@@ -26,6 +26,7 @@ interface ChatSidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   onSessionsRefresh?: () => void; // Optional callback when sessions are refreshed
+  refreshTrigger?: number; // Trigger to force refresh
 }
 
 export function ChatSidebar({
@@ -35,6 +36,7 @@ export function ChatSidebar({
   isCollapsed,
   onToggle,
   onSessionsRefresh,
+  refreshTrigger,
 }: ChatSidebarProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -87,6 +89,13 @@ export function ChatSidebar({
       }
     }
   }, [session, currentSessionId, sessions, fetchSessions]);
+
+  // Refresh sessions when refreshTrigger changes
+  useEffect(() => {
+    if (session && refreshTrigger !== undefined) {
+      fetchSessions();
+    }
+  }, [session, refreshTrigger, fetchSessions]);
 
   const handleNewChat = () => {
     onNewChat();

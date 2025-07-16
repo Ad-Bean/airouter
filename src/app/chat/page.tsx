@@ -101,6 +101,7 @@ function ChatPageContent() {
   const [editProvider, setEditProvider] = useState<Provider>(defaultEditProvider);
   const [editModel, setEditModel] = useState<string>(getDefaultEditModel(defaultEditProvider));
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [refreshSidebar, setRefreshSidebar] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentSessionIdRef = useRef<string | null>(null);
 
@@ -494,6 +495,9 @@ function ChatPageContent() {
               if (data.session?.id) {
                 sessionId = data.session.id;
                 setCurrentSessionId(sessionId);
+
+                // Trigger sidebar refresh to show the new session
+                setRefreshSidebar((prev) => prev + 1);
 
                 // Update URL without triggering navigation for smoother experience
                 const newUrl = `/chat?session=${sessionId}`;
@@ -892,6 +896,7 @@ function ChatPageContent() {
             onSessionSelect={loadChatSession}
             isCollapsed={sidebarCollapsed}
             onToggle={handleSidebarToggle}
+            refreshTrigger={refreshSidebar}
           />
         </div>
 
