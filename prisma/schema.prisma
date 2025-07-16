@@ -58,8 +58,26 @@ model User {
   images        GeneratedImage[]
   chatSessions  ChatSession[]
   transactions  Transaction[]
+  apiKeys       ApiKey[]
 
   @@map("users")
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String    // User-defined name for the API key
+  key         String    @unique // The actual API key
+  lastUsed    DateTime? // When the key was last used
+  usageCount  Int       @default(0) // Number of times the key has been used
+  isActive    Boolean   @default(true) // Whether the key is active
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[] @relation("ApiKeyTransactions")
+
+  @@map("api_keys")
 }
 
 model ChatSession {
@@ -147,9 +165,11 @@ model Transaction {
   description   String?  // Transaction description
   metadata      Json?    // Additional data (provider, model, etc.)
   stripePaymentId String? // Stripe payment intent ID
+  apiKeyId      String?  // API key used for this transaction
   createdAt     DateTime @default(now())
   
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey        ApiKey?  @relation("ApiKeyTransactions", fields: [apiKeyId], references: [id], onDelete: SetNull)
   
   @@map("transactions")
 }

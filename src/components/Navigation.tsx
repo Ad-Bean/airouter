@@ -60,6 +60,12 @@ export function Navigation({
           >
             Pricing
           </Link>
+          <Link
+            href="/api-docs"
+            className="text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+          >
+            API Docs
+          </Link>
           <button
             onClick={onToggleTheme}
             className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
@@ -98,18 +104,25 @@ export function Navigation({
                     Chat
                   </Link>
                   <Link
-                    href="/billing"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
-                    onClick={() => setShowDropdown(false)}
-                  >
-                    Billing
-                  </Link>
-                  <Link
                     href="/dashboard"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                     onClick={() => setShowDropdown(false)}
                   >
                     Dashboard
+                  </Link>
+                  <Link
+                    href="/api-keys"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    API Keys
+                  </Link>
+                  <Link
+                    href="/billing"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    Billing
                   </Link>
                   <Link
                     href="/gallery"

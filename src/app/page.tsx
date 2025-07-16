@@ -9,6 +9,7 @@ import { HeroSection } from '@/components/HeroSection';
 import { FeaturedModelsSection } from '@/components/FeaturedModelsSection';
 import { FeaturesSection } from '@/components/FeaturesSection';
 import { CTASection } from '@/components/CTASection';
+import { ApiDocumentation } from '@/components/ApiDocumentation';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
 import { DEFAULT_PROVIDERS } from '@/config/providers';
@@ -126,6 +127,7 @@ export default function Home() {
 
         <FeaturedModelsSection />
         <FeaturesSection />
+        <ApiDocumentation />
         <CTASection />
         <Footer />
 

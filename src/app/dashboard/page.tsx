@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { FreeUserNotification } from '@/components/FreeUserNotification';
+import { ApiKeyManager } from '@/components/ApiKeyManager';
 import { getImageStatus } from '@/lib/image-utils';
 import Image from 'next/image';
 import { ImageIcon, Heart, TrendingUp, BarChart3, Eye, Sparkles, AlertCircle } from 'lucide-react';
@@ -319,6 +320,11 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* API Key Management */}
+          <div className="mb-8">
+            <ApiKeyManager />
           </div>
 
           {/* Quick Actions */}
