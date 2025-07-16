@@ -44,3 +44,5 @@ next-env.d.ts
 
 # github
 .github/prompts
+.kiro/
+.vscode/

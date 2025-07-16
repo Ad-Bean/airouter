@@ -15,7 +15,7 @@ import { Download, Trash2, Heart, Search, ImageIcon } from 'lucide-react';
 import { GeneratedImage } from '@/types/dashboard';
 import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from '@/config/providers';
 import { Skeleton } from '@/components/ui/skeleton';
-import * as Select from '@radix-ui/react-select';
+import { Select } from 'radix-ui';
 
 function getImageDisplayUrl(image: GeneratedImage): string {
   return `/api/images/${image.id}`;
