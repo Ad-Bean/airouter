@@ -330,7 +330,7 @@ export default function GalleryPage() {
                       </Button>
                     </CardHeader>
                     <CardContent className="bg-white dark:bg-gray-800">
-                      <p className="mb-2 line-clamp-2 text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="mb-2 line-clamp-2 h-6 text-sm font-medium text-gray-900 dark:text-white">
                         {image.prompt}
                       </p>
                       <div className="mb-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
