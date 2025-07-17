@@ -733,6 +733,8 @@ function ChatPageContent() {
 
   // Group images by provider for each message
   const groupImagesByProvider = (message: Message) => {
+    console.log('message', message);
+
     const providers = (message.metadata?.providers as string[]) || [];
     const imageProviderMap = message.metadata?.imageProviderMap as Record<string, string>;
     const providerErrors = (message.metadata?.providerErrors as Record<string, string>) || {};
@@ -1143,7 +1145,10 @@ function ChatPageContent() {
                                       message.imageUrls.length > 0;
 
                                     return (
-                                      <div key={provider} className="space-y-3">
+                                      <div
+                                        key={provider}
+                                        className={`space-y-3 ${message.metadata?.providers?.length === 1 ? 'col-span-2' : ''}`}
+                                      >
                                         {/* Provider Header */}
                                         <div className="flex items-center gap-2">
                                           <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
@@ -1193,7 +1198,7 @@ function ChatPageContent() {
                                         </div>
 
                                         {/* Images/Loading/Error */}
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-2 gap-4">
                                           {/* Show original image being edited */}
                                           {message.metadata?.isEdit &&
                                             message.metadata?.originalImageUrl && (
