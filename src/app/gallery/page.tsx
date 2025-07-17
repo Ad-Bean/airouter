@@ -366,7 +366,6 @@ export default function GalleryPage() {
                           aria-label="Delete image"
                         >
                           <Trash2 className="h-3 w-3" />
-                          Delete
                         </Button>
                       </div>
                     </CardFooter>

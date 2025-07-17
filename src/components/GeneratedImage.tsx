@@ -31,7 +31,7 @@ export function GeneratedImage({
   }, [src]);
 
   const imageUrl = (() => {
-    if (!src) return '';
+    if (!src || src.trim() === '') return null;
     if (src.startsWith('data:')) return src; // Handle base64 data URLs
     if (src.startsWith('http://') || src.startsWith('https://')) return src;
     if (src.startsWith('/api/')) return src;
@@ -40,8 +40,8 @@ export function GeneratedImage({
   })();
 
   // Check if this is an API route or base64 data URL that should be unoptimized
-  const isApiRoute = imageUrl.startsWith('/api/');
-  const isDataUrl = imageUrl.startsWith('data:');
+  const isApiRoute = imageUrl?.startsWith('/api/') || false;
+  const isDataUrl = imageUrl?.startsWith('data:') || false;
 
   const handleError = () => {
     setImageError(true);
@@ -59,7 +59,8 @@ export function GeneratedImage({
     }
   };
 
-  if (imageError) {
+  // Show error state if no valid image URL or if there's an image error
+  if (!imageUrl || imageError) {
     return (
       <div
         className={`flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-600 dark:bg-gray-800 ${className}`}
