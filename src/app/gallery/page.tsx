@@ -11,7 +11,7 @@ import Zoom from 'react-medium-image-zoom';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Tooltip } from '@/components/ui/tooltip';
 import 'react-medium-image-zoom/dist/styles.css';
-import { Download, Trash2, Heart, Search, ImageIcon } from 'lucide-react';
+import { Download, Trash2, Heart, Search, ImageIcon, Copy, Check } from 'lucide-react';
 import { GeneratedImage } from '@/types/dashboard';
 import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from '@/config/providers';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,6 +44,7 @@ export default function GalleryPage() {
   const [filter, setFilter] = useState<FilterOption>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDark, setIsDark] = useState(false);
+  const [copiedPrompts, setCopiedPrompts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -130,6 +131,24 @@ export default function GalleryPage() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Failed to download image:', error);
+    }
+  };
+
+  const copyPrompt = async (prompt: string, imageId: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopiedPrompts((prev) => new Set(prev).add(imageId));
+
+      // Reset the copied state after 2 seconds
+      setTimeout(() => {
+        setCopiedPrompts((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(imageId);
+          return newSet;
+        });
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy prompt:', error);
     }
   };
 
@@ -310,6 +329,25 @@ export default function GalleryPage() {
                     </CardContent>
                     <CardFooter className="border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex cursor-pointer items-center gap-1"
+                          onClick={() => copyPrompt(image.prompt, image.id)}
+                          aria-label="Copy prompt"
+                        >
+                          {copiedPrompts.has(image.id) ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
                         <Button
                           variant="default"
                           size="sm"

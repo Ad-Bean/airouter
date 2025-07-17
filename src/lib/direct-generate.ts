@@ -60,7 +60,7 @@ export async function generateImageDirect(
     height = 1024,
     n,
     sampleCount,
-    quality = 'standard',
+    quality = 'auto',
     moderation,
     style,
     safetySetting,

@@ -179,10 +179,13 @@ export async function generateWithOpenAI(
         ...baseParams,
         model: 'dall-e-2',
         response_format: 'b64_json', // Request base64 data instead of URLs
-        quality: quality as 'auto' | 'standard',
+        // quality: quality as 'auto' | 'standard',
         n: Math.min(n, 10), // DALL-E 2 supports up to 10 images
       };
     }
+
+    console.log('params', requestParams);
+
     const response = await openai.images.generate(requestParams);
 
     // Handle different response formats based on model

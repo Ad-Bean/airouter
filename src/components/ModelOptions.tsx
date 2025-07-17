@@ -19,14 +19,10 @@ const QUALITY_OPTIONS = {
     { value: 'high', label: 'High' },
   ],
   'dall-e-3': [
-    { value: 'auto', label: 'Auto' },
     { value: 'standard', label: 'Standard' },
     { value: 'hd', label: 'HD' },
   ],
-  'dall-e-2': [
-    { value: 'standard', label: 'Standard' },
-    { value: 'auto', label: 'Auto' },
-  ],
+  // 'dall-e-2': [{ value: 'standard', label: 'Standard' }],
 };
 
 const STYLE_OPTIONS = [
@@ -80,7 +76,9 @@ export function ModelOptions({
     const qualityOptions = QUALITY_OPTIONS[modelId as keyof typeof QUALITY_OPTIONS];
     if (!qualityOptions) return null;
 
-    const defaultValue = modelId === 'dall-e-2' ? 'standard' : 'auto';
+    // Set correct default values according to OpenAI API specs
+    const defaultValue =
+      modelId === 'dall-e-2' ? 'standard' : modelId === 'dall-e-3' ? 'standard' : 'auto'; // gpt-image-1 defaults to auto
 
     return (
       <OptionField label="Quality">
