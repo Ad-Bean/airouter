@@ -389,7 +389,7 @@ async function generateImagesBackground(
         }
 
         const result = await generateImageDirect(generateParams, userId);
-        console.log(`Generated from ${provider}:`, result);
+        // console.log(`Generated from ${provider}:`, result);
 
         if (result.success && result.images && result.images.length > 0) {
           // Save images to storage and get URLs

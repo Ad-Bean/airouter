@@ -19,17 +19,11 @@ interface GenerateRequest {
   quality?: 'standard' | 'hd' | 'low' | 'medium' | 'high';
 }
 
+// POST api/generate
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions);
-
-    console.log('=== DEBUG SESSION ===');
-    console.log('Full session:', JSON.stringify(session, null, 2));
-    console.log('Session user:', session?.user);
-    console.log('User ID:', session?.user?.id);
-    console.log('User email:', session?.user?.email);
-    console.log('=== END DEBUG ===');
 
     if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

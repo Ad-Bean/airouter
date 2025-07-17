@@ -128,22 +128,6 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    console.log('Attempting to save image with data:', {
-      userId,
-      prompt: prompt.trim().substring(0, 100) + '...',
-      imageDataSize: imageBuffer.length,
-      base64Size: base64Data.length,
-      mimeType,
-      filename,
-      s3Key: s3Result.key,
-      s3Url: s3Result.url,
-      provider,
-      model: model || null,
-      width: width || 1024,
-      height: height || 1024,
-      steps: steps || 20,
-    });
-
     // Verify user exists with retry logic
     const user = await withDatabaseRetry(async () => {
       return await prisma.user.findUnique({
