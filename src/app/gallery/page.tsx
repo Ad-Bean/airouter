@@ -16,6 +16,7 @@ import { GeneratedImage } from '@/types/dashboard';
 import { AVAILABLE_PROVIDERS, PROVIDER_INFO } from '@/config/providers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select } from 'radix-ui';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 
 function getImageDisplayUrl(image: GeneratedImage): string {
   return `/api/images/${image.id}`;
@@ -45,6 +46,8 @@ export default function GalleryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDark, setIsDark] = useState(false);
   const [copiedPrompts, setCopiedPrompts] = useState<Set<string>>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -98,22 +101,30 @@ export default function GalleryPage() {
     }
   }, [session, fetchImages]);
 
-  const deleteImage = async (imageId: string) => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+  const handleDeleteClick = (imageId: string) => {
+    setImageToDelete(imageId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteImage = async () => {
+    if (!imageToDelete) return;
 
     try {
       const response = await fetch('/api/images', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageId }),
+        body: JSON.stringify({ imageId: imageToDelete }),
       });
 
       if (response.ok) {
-        setImages((prev) => prev.filter((img) => img.id !== imageId));
+        setImages((prev) => prev.filter((img) => img.id !== imageToDelete));
         setPagination((prev) => ({ ...prev, total: prev.total - 1 }));
       }
     } catch (error) {
       console.error('Failed to delete image:', error);
+    } finally {
+      setImageToDelete(null);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -361,7 +372,7 @@ export default function GalleryPage() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => deleteImage(image.id)}
+                          onClick={() => handleDeleteClick(image.id)}
                           className="flex cursor-pointer items-center gap-1"
                           aria-label="Delete image"
                         >
@@ -416,6 +427,19 @@ export default function GalleryPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Image"
+        description="Are you sure you want to delete this image? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={confirmDeleteImage}
+        onCancel={() => setImageToDelete(null)}
+      />
     </div>
   );
 }

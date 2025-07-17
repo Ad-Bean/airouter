@@ -18,6 +18,7 @@ import {
   BarChart3,
   Clock,
 } from 'lucide-react';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 
 interface ApiKey {
   id: string;
@@ -58,6 +59,8 @@ export default function ApiKeysPage() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [selectedKeyUsage, setSelectedKeyUsage] = useState<ApiKeyUsage | null>(null);
   const [loadingUsage, setLoadingUsage] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [keyToDelete, setKeyToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -127,13 +130,16 @@ export default function ApiKeysPage() {
     }
   };
 
-  const deleteApiKey = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteClick = (id: string) => {
+    setKeyToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteApiKey = async () => {
+    if (!keyToDelete) return;
 
     try {
-      const response = await fetch(`/api/api-key/${id}`, {
+      const response = await fetch(`/api/api-key/${keyToDelete}`, {
         method: 'DELETE',
       });
 
@@ -146,6 +152,9 @@ export default function ApiKeysPage() {
     } catch (error) {
       console.error('Error deleting API key:', error);
       alert('Failed to delete API key');
+    } finally {
+      setKeyToDelete(null);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -326,7 +335,7 @@ export default function ApiKeysPage() {
                       <BarChart3 className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => deleteApiKey(apiKey.id)}
+                      onClick={() => handleDeleteClick(apiKey.id)}
                       className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                       title="Delete"
                     >
@@ -557,6 +566,19 @@ export default function ApiKeysPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete API Key"
+        description="Are you sure you want to delete this API key? This action cannot be undone and will immediately revoke access for any applications using this key."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={confirmDeleteApiKey}
+        onCancel={() => setKeyToDelete(null)}
+      />
 
       <Footer />
     </div>
