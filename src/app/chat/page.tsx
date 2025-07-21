@@ -42,13 +42,11 @@ const MemoizedImageWithZoom = memo(
     url,
     provider,
     index,
-    messageId,
     isEdit,
   }: {
     url: string;
     provider: string;
     index: number;
-    messageId: string;
     isEdit?: boolean;
   }) => {
     return (
@@ -1284,7 +1282,6 @@ function ChatPageContent() {
                                                 url={url}
                                                 provider={provider}
                                                 index={index}
-                                                messageId={message.id}
                                                 isEdit={message.metadata?.isEdit}
                                               />
                                             );

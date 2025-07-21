@@ -1,0 +1,134 @@
+/* Terminal-style Prism theme for code syntax highlighting */
+
+/* Base styles */
+code[class*="language-"],
+pre[class*="language-"] {
+  color: #e5e7eb;
+  background: none;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 0.875rem;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.5;
+  tab-size: 4;
+  hyphens: none;
+}
+
+/* Code blocks */
+pre[class*="language-"] {
+  padding: 0;
+  margin: 0;
+  overflow: auto;
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+  padding: 0.1em;
+  border-radius: 0.3em;
+  white-space: normal;
+}
+
+/* Token colors for terminal theme */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #d1d5db;
+}
+
+.token.property,
+.token.tag,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f87171;
+}
+
+.token.boolean,
+.token.number {
+  color: #fbbf24;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #34d399;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string,
+.token.variable {
+  color: #60a5fa;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.function,
+.token.class-name {
+  color: #a78bfa;
+}
+
+.token.keyword {
+  color: #fb7185;
+}
+
+.token.regex,
+.token.important {
+  color: #fbbf24;
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+/* Language-specific adjustments */
+.language-bash .token.function {
+  color: #34d399;
+}
+
+.language-bash .token.string {
+  color: #fbbf24;
+}
+
+.language-json .token.property {
+  color: #60a5fa;
+}
+
+.language-json .token.string {
+  color: #34d399;
+}
+
+.language-javascript .token.keyword {
+  color: #fb7185;
+}
+
+.language-python .token.keyword {
+  color: #fb7185;
+}
+
+.language-python .token.function {
+  color: #a78bfa;
+}

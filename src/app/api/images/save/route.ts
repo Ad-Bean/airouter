@@ -49,7 +49,6 @@ export async function POST(request: NextRequest) {
     }
 
     let imageBuffer: Buffer;
-    let base64Data: string;
     let mimeType = 'image/png';
 
     // Validate imageData
@@ -64,10 +63,8 @@ export async function POST(request: NextRequest) {
         if (mimeMatch) {
           mimeType = mimeMatch[1];
         }
-        base64Data = extractedBase64;
         imageBuffer = Buffer.from(extractedBase64, 'base64');
       } else {
-        base64Data = imageData;
         imageBuffer = Buffer.from(imageData, 'base64');
       }
     } catch (bufferError) {
@@ -91,7 +88,13 @@ export async function POST(request: NextRequest) {
     const filename = `${provider}_${Date.now()}.${extension}`;
 
     // Upload to S3
-    let s3Result;
+    let s3Result = {
+      key: '',
+      url: '',
+      bucket: '',
+      signedUrl: '',
+      expiresAt: new Date(),
+    };
     try {
       // Check if S3 is configured
       if (

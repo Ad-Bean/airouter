@@ -47,9 +47,9 @@ async function saveImageToDatabase({
     const extension = mimeType.split('/')[1] || 'png';
     const filename = `generated_${timestamp}.${extension}`;
 
-    let s3Url = null;
-    let s3Key = null;
-    let s3Bucket = null;
+    let s3Url = '';
+    let s3Key = '';
+    let s3Bucket = '';
 
     // Try to upload to S3 if configured
     try {
