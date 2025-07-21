@@ -19,9 +19,12 @@ export function ApiDocsContent({ activeSection, onSectionInView, children }: Api
   const [error, setError] = useState<Error | null>(null);
 
   // Debounce function to limit scroll event handling
-  const debounce = (func: Function, wait: number) => {
+  const debounce = <T extends unknown[]>(
+    func: (...args: T) => void,
+    wait: number,
+  ): ((...args: T) => void) => {
     let timeout: ReturnType<typeof setTimeout>;
-    return (...args: any[]) => {
+    return (...args: T) => {
       clearTimeout(timeout);
       timeout = setTimeout(() => func(...args), wait);
     };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+// No need for useState and useEffect in this component
 import { ModelDocumentation } from '@/components/ModelDocumentation';
 import { Section } from '@/components/ApiDocsContent';
 import { MODEL_DOCUMENTATION } from '@/lib/api-docs-data';
@@ -20,7 +20,6 @@ export function ModelDocumentationPage({ providerId, modelId }: ModelDocumentati
   // Get model data from documentation
   const modelData = MODEL_DOCUMENTATION[providerId]?.[modelId];
   const providerConfig = PROVIDER_CONFIGS[providerId as keyof typeof PROVIDER_CONFIGS];
-  const modelConfig = providerConfig?.models.find((m) => m.id === modelId);
 
   // Get real-time status from context
   const { getModelStatus } = useStatus();

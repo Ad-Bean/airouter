@@ -1,17 +1,15 @@
 'use client';
 
 import { ApiEndpointDoc } from '@/components/ApiEndpointDoc';
-import { ModelDocumentation } from '@/components/ModelDocumentation';
 import { ModelDocumentationPage } from '@/components/ModelDocumentationPage';
 import { Section } from '@/components/ApiDocsContent';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { API_ENDPOINTS, MODEL_DOCUMENTATION, AUTH_DOCUMENTATION } from '@/lib/api-docs-data';
 import { useStatus, ModelStatus } from '@/lib/status-context';
-import { AlertCircle, CheckCircle, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Provider } from '@/lib/api';
 import { Tooltip } from '@/components/ui/tooltip';
-import { ImageIcon } from '@radix-ui/react-icons';
 
 // Model Status Indicator Component
 interface ModelStatusIndicatorProps {
@@ -63,7 +61,7 @@ export function ApiOverviewSection() {
         second: 'numeric',
         hour12: true,
       }).format(date);
-    } catch (e) {
+    } catch (/* eslint-disable-next-line @typescript-eslint/no-unused-vars */ _error) {
       return 'Unknown';
     }
   };
@@ -460,7 +458,7 @@ export function ModelsSection() {
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <h4 className="font-medium">{model.name}</h4>
-                      <ModelStatusIndicator provider={provider as any} modelId={modelId} />
+                      <ModelStatusIndicator provider={provider as Provider} modelId={modelId} />
                     </div>
                     <p className="mb-3 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
                       {model.description}
@@ -494,13 +492,13 @@ export function ModelPages() {
     <>
       {Object.entries(MODEL_DOCUMENTATION).map(([provider, models]) =>
         Object.entries(models).map(([modelId, model]) => (
-          <ModelDocumentationPage
+          <Section
             key={`${provider}-${modelId}`}
             id={`model-${provider}-${modelId}`}
-            provider={provider as Provider}
-            modelId={modelId}
-            model={model}
-          />
+            title={model.name}
+          >
+            <ModelDocumentationPage providerId={provider as Provider} modelId={modelId} />
+          </Section>
         )),
       )}
     </>

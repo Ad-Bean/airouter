@@ -289,7 +289,7 @@ export default function GalleryPage() {
                     className="bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg dark:bg-gray-800"
                   >
                     <CardHeader className="relative aspect-square bg-gray-100 p-0 dark:bg-gray-900">
-                      <Tooltip content={image.prompt} side="top">
+                      <Tooltip content={image.prompt} position="top">
                         <Zoom>
                           <Image
                             src={getImageDisplayUrl(image)}
@@ -431,14 +431,16 @@ export default function GalleryPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setImageToDelete(null);
+        }}
         title="Delete Image"
         description="Are you sure you want to delete this image? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
         onConfirm={confirmDeleteImage}
-        onCancel={() => setImageToDelete(null)}
       />
     </div>
   );

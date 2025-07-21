@@ -419,14 +419,16 @@ export function ChatSidebar({
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setSessionToDelete(null);
+        }}
         title="Delete Chat Session"
         description="Are you sure you want to delete this chat? This action cannot be undone and all messages in this conversation will be permanently lost."
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
         onConfirm={confirmDeleteSession}
-        onCancel={() => setSessionToDelete(null)}
       />
     </>
   );

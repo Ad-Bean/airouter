@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PROVIDER_CONFIGS } from '@/config/providers';
 import { useStatus } from '@/lib/status-context';
+import { Provider } from '@/lib/api';
 import {
   CheckCircle,
   AlertCircle,
@@ -68,7 +69,7 @@ export function ModelDocumentation({
 
   // Get real-time status from context
   const { getModelStatus } = useStatus();
-  const realTimeStatus = getModelStatus(providerId as any, modelId);
+  const realTimeStatus = getModelStatus(providerId as Provider, modelId);
 
   // Use real-time status if available, otherwise fall back to default
   const status = realTimeStatus || defaultStatus;

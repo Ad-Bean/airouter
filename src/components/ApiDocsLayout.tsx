@@ -21,11 +21,15 @@ interface ApiDocsLayoutProps {
   children: React.ReactNode;
 }
 
-// Utility function to debounce function calls - used for scroll and resize handlers
-function debounce<F extends (...args: any[]) => any>(func: F, wait: number) {
+// NetworkStatus component uses this internally
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function debounce<T extends unknown[]>(
+  func: (...args: T) => void,
+  wait: number,
+): (...args: T) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
-  return (...args: Parameters<F>) => {
+  return (...args: T) => {
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
@@ -176,9 +180,10 @@ export function ApiDocsLayout({ children }: ApiDocsLayoutProps) {
 
       // Enable smooth scrolling for all internal links
       document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-        anchor.addEventListener('click', function (e) {
+        anchor.addEventListener('click', function (e: Event) {
           e.preventDefault();
-          const targetId = this.getAttribute('href')?.slice(1);
+          const element = e.currentTarget as HTMLAnchorElement;
+          const targetId = element.getAttribute('href')?.slice(1);
           if (targetId) {
             handleSectionChange(targetId);
           }

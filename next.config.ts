@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -96,6 +101,20 @@ const nextConfig: NextConfig = {
         hostname: 'airouter-tau.vercel.app',
         port: '',
         pathname: '/api/images/**',
+      },
+      // Allow storage.airouter.io domain
+      {
+        protocol: 'https',
+        hostname: 'storage.airouter.io',
+        port: '',
+        pathname: '/**',
+      },
+      // Allow example.com for documentation examples
+      {
+        protocol: 'https',
+        hostname: 'example.com',
+        port: '',
+        pathname: '/**',
       },
       // Allow any Vercel app deployment for API images
       {

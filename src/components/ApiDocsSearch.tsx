@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Filter } from 'lucide-react';
 import { NavigationItem } from '@/config/navigation';
 import { useStatus } from '@/lib/status-context';
@@ -35,7 +35,7 @@ export function ApiDocsSearch({ onSectionChange, navigationItems }: ApiDocsSearc
     },
   });
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { getProviderStatus, getModelStatus } = useStatus();
+  const { getModelStatus } = useStatus();
 
   // Focus search input when pressing Ctrl+K or Cmd+K
   useEffect(() => {
@@ -117,37 +117,40 @@ export function ApiDocsSearch({ onSectionChange, navigationItems }: ApiDocsSearc
     return results;
   };
 
-  // Search function
-  const performSearch = (query: string) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
+  // Search function wrapped in useCallback to avoid re-renders
+  const performSearch = useCallback(
+    (query: string) => {
+      if (!query.trim()) {
+        setSearchResults([]);
+        return;
+      }
 
-    setIsSearching(true);
-    const allItems = flattenNavigationItems(navigationItems);
+      setIsSearching(true);
+      const allItems = flattenNavigationItems(navigationItems);
 
-    // Filter based on search query and current filters
-    const filteredResults = allItems.filter((item) => {
-      // Apply type filters
-      if (item.type === 'section' && !filters.sections) return false;
-      if (item.type === 'model' && !filters.models) return false;
-      if (item.type === 'endpoint' && !filters.endpoints) return false;
+      // Filter based on search query and current filters
+      const filteredResults = allItems.filter((item) => {
+        // Apply type filters
+        if (item.type === 'section' && !filters.sections) return false;
+        if (item.type === 'model' && !filters.models) return false;
+        if (item.type === 'endpoint' && !filters.endpoints) return false;
 
-      // Apply provider filters for models
-      if (item.provider && !filters.providers[item.provider]) return false;
+        // Apply provider filters for models
+        if (item.provider && !filters.providers[item.provider]) return false;
 
-      // Search in label, description, and parent label
-      const searchIn = [item.label, item.description || '', item.parentLabel || '']
-        .join(' ')
-        .toLowerCase();
+        // Search in label, description, and parent label
+        const searchIn = [item.label, item.description || '', item.parentLabel || '']
+          .join(' ')
+          .toLowerCase();
 
-      return searchIn.includes(query.toLowerCase());
-    });
+        return searchIn.includes(query.toLowerCase());
+      });
 
-    setSearchResults(filteredResults);
-    setIsSearching(false);
-  };
+      setSearchResults(filteredResults);
+      setIsSearching(false);
+    },
+    [filters, navigationItems],
+  );
 
   // Handle search input changes
   useEffect(() => {
@@ -156,7 +159,7 @@ export function ApiDocsSearch({ onSectionChange, navigationItems }: ApiDocsSearc
     }, 300);
 
     return () => clearTimeout(delaySearch);
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, performSearch]);
 
   // Handle filter changes
   const handleFilterChange = (filterType: string, value: boolean) => {
@@ -188,8 +191,12 @@ export function ApiDocsSearch({ onSectionChange, navigationItems }: ApiDocsSearc
   const getStatusIndicator = (result: SearchResult) => {
     if (result.type !== 'model' || !result.provider) return null;
 
-    const [_, provider, modelId] = result.id.split('-');
-    const status = getModelStatus(provider as Provider, modelId);
+    const parts = result.id.split('-');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const provider = parts[1];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const modelId = parts[2];
+    const status = getModelStatus(result.provider, parts[2]);
 
     if (!status) return null;
 

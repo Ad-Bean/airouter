@@ -570,14 +570,16 @@ export default function ApiKeysPage() {
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setKeyToDelete(null);
+        }}
         title="Delete API Key"
         description="Are you sure you want to delete this API key? This action cannot be undone and will immediately revoke access for any applications using this key."
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
         onConfirm={confirmDeleteApiKey}
-        onCancel={() => setKeyToDelete(null)}
       />
 
       <Footer />

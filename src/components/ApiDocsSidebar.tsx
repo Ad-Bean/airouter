@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ChevronDown, ChevronRight, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { getNavigationItems, type NavigationItem } from '@/config/navigation';
 import { useStatus, type ModelStatus, type ProviderStatus } from '@/lib/status-context';
@@ -44,15 +44,18 @@ export function ApiDocsSidebar({
   // Get navigation structure from configuration
   const navigationItems: NavigationItem[] = getNavigationItems();
 
-  const toggleSection = (sectionId: string) => {
-    const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(sectionId)) {
-      newExpanded.delete(sectionId);
-    } else {
-      newExpanded.add(sectionId);
-    }
-    setExpandedSections(newExpanded);
-  };
+  const toggleSection = useCallback(
+    (sectionId: string) => {
+      const newExpanded = new Set(expandedSections);
+      if (newExpanded.has(sectionId)) {
+        newExpanded.delete(sectionId);
+      } else {
+        newExpanded.add(sectionId);
+      }
+      setExpandedSections(newExpanded);
+    },
+    [expandedSections],
+  );
 
   // Persist expanded sections to localStorage
   useEffect(() => {
@@ -116,7 +119,7 @@ export function ApiDocsSidebar({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [activeSection, expandedSections, navigationItems]);
+  }, [activeSection, expandedSections, navigationItems, toggleSection]);
 
   // Auto-expand section containing active item
   useEffect(() => {
@@ -174,7 +177,9 @@ export function ApiDocsSidebar({
 
     // Check if this is a model item
     if (item.id.startsWith('model-')) {
-      const [_, provider, modelId] = item.id.split('-');
+      const parts = item.id.split('-');
+      const provider = parts[1];
+      const modelId = parts[2];
       return getModelStatus(provider as Provider, modelId);
     }
 
